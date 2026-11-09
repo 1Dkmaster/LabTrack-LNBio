@@ -41,3 +41,4 @@ Este projeto implementa uma versão funcional inicial do LabTrack LNBio, com foc
 ## Observação
 
 Esta é uma versão de protótipo front-end, pensada para validar fluxo, UX e requisitos do laboratório antes da evolução para uma solução com backend e autenticação.
+TESTE
