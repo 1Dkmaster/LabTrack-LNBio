@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LabTrack LNBio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LNBio · Operações Laboratoriais</p>
+          <h1>LabTrack LNBio</h1>
+        </div>
+        <div class="topbar-actions">
+          <label class="role-switch" for="roleSelect">
+            <span>Perfil</span>
+            <select id="roleSelect">
+              <option value="operador">Operador</option>
+              <option value="consulta">Consulta</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h2>Equipamentos</h2>
+          <button id="newEquipmentBtn" class="primary-btn small">+ Novo</button>
+        </div>
+        <div class="search-box">
+          <input id="searchInput" type="search" placeholder="Buscar equipamento" aria-label="Buscar equipamento" />
+        </div>
+        <div id="equipmentList" class="equipment-list" aria-live="polite"></div>
+      </aside>
+
+      <main class="main-panel">
+        <section id="dashboardView" class="view active">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Dashboard</p>
+              <h2>Indicadores gerais</h2>
+            </div>
+          </div>
+          <div id="dashboardMetrics" class="metrics-grid"></div>
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Resumo de controle</h3>
+            </div>
+            <div id="alertList" class="alert-list"></div>
+          </div>
+        </section>
+
+        <section id="equipmentView" class="view">
+          <div class="section-header detail-header">
+            <div>
+              <p class="eyebrow">Equipamento</p>
+              <h2 id="equipmentName">Selecione um item</h2>
+            </div>
+            <button id="activityBtn" class="primary-btn">Registrar atividade</button>
+          </div>
+
+          <div class="detail-layout">
+            <div class="detail-main">
+              <div class="panel tabs-panel">
+                <div class="tabs" role="tablist" aria-label="Detalhes do equipamento">
+                  <button class="tab-btn active" data-tab="records" role="tab" aria-selected="true">Registros</button>
+                  <button class="tab-btn" data-tab="public" role="tab" aria-selected="false">Status Público</button>
+                  <button class="tab-btn" data-tab="technical" role="tab" aria-selected="false">Dados do Equipamento</button>
+                  <button class="tab-btn" data-tab="qr" role="tab" aria-selected="false">QR Code</button>
+                </div>
+
+                <div id="tabContent" class="tab-content"></div>
+              </div>
+            </div>
+
+            <aside class="detail-side">
+              <div class="panel attribute-card">
+                <h3>Dados rápidos</h3>
+                <ul id="equipmentOverview" class="info-list"></ul>
+              </div>
+              <div class="panel attribute-card">
+                <h3>Próximas ações</h3>
+                <ul id="equipmentActions" class="action-list"></ul>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="publicView" class="view">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Consulta pública</p>
+              <h2>Status do equipamento</h2>
+            </div>
+          </div>
+          <div id="publicStatusCard" class="public-status-card"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="modalBackdrop" class="modal-backdrop hidden">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="modalTitle">Registrar atividade</h3>
+          <button id="closeModalBtn" class="icon-btn" aria-label="Fechar">✕</button>
+        </div>
+
+        <form id="activityForm">
+          <div class="form-grid">
+            <label>
+              Tipo
+              <select id="activityType" name="type">
+                <option value="Limpeza">Limpeza</option>
+                <option value="Inspeção">Inspeção</option>
+                <option value="Manutenção">Manutenção</option>
+                <option value="Observação">Observação</option>
+                <option value="Calibração">Calibração</option>
+              </select>
+            </label>
+            <label>
+              Data
+              <input id="activityDate" name="date" type="date" required />
+            </label>
+            <label>
+              Responsável
+              <input id="activityResponsible" name="responsible" type="text" placeholder="Nome do responsável" required />
+            </label>
+            <label>
+              Status
+              <select id="activityStatus" name="status">
+                <option value="Operacional">Operacional</option>
+                <option value="Atenção">Atenção</option>
+                <option value="Manutenção">Manutenção</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            Observações
+            <textarea id="activityNotes" name="notes" rows="4" placeholder="Descreva o registro executado"></textarea>
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="secondary-btn" id="cancelActivityBtn">Cancelar</button>
+            <button type="submit" class="primary-btn">Salvar registro</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="newEquipmentModal" class="modal-backdrop hidden">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Cadastrar equipamento</h3>
+          <button id="closeNewEquipmentBtn" class="icon-btn" aria-label="Fechar">✕</button>
+        </div>
+
+        <form id="equipmentForm">
+          <div class="form-grid">
+            <label>
+              Código
+              <input id="newCode" name="code" type="text" placeholder="BAL-010" required />
+            </label>
+            <label>
+              Nome
+              <input id="newName" name="name" type="text" placeholder="Balança Analítica" required />
+            </label>
+            <label>
+              Categoria
+              <select id="newCategory" name="category">
+                <option value="Balança">Balança</option>
+                <option value="Centrífuga">Centrífuga</option>
+                <option value="Freezer">Freezer</option>
+                <option value="Geladeira">Geladeira</option>
+                <option value="Moinho">Moinho</option>
+                <option value="Pipeta">Pipeta</option>
+                <option value="Banho">Banho</option>
+                <option value="Equipamento Geral">Equipamento Geral</option>
+              </select>
+            </label>
+            <label>
+              Localização
+              <input id="newLocation" name="location" type="text" placeholder="Sala A12" required />
+            </label>
+            <label>
+              Fabricante
+              <input id="newManufacturer" name="manufacturer" type="text" placeholder="Mettler Toledo" />
+            </label>
+            <label>
+              Número patrimonial
+              <input id="newAsset" name="asset" type="text" placeholder="LNBIO-00050" />
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="secondary-btn" id="cancelEquipmentBtn">Cancelar</button>
+            <button type="submit" class="primary-btn">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
