@@ -1,206 +1,39 @@
-const STORAGE_KEY = "labtrack-lnbio-v1";
-
-const defaultEquipment = [
-  {
-    id: "BAL-001",
-    name: "Balança Analítica XP205",
-    category: "Balança",
-    location: "Sala A12",
-    manufacturer: "Mettler Toledo",
-    assetNumber: "LNBIO-00045",
-    serial: "XP205-789456",
-    acquisitionYear: 2023,
-    status: "Operacional",
-    responsible: "Equipe Operações",
-    publicUrl: "https://labtrack.lnbio/equipamento/BAL-001",
-    qrCode: "QR-BAL-001",
-    lastCleaning: "2027-07-25",
-    lastInspection: "2027-07-25",
-    lastCalibration: "2027-06-15",
-    nextCalibration: "2027-12-15",
-    technical: {
-      modelo: "XP205",
-      capacidade: "220 g",
-      resolucao: "0,01 mg",
-      peso: "7 kg",
-      localizacao: "Laboratório LOA",
-      manual: "Abrir",
-      pop: "Abrir"
-    },
-    activities: [
-      {
-        id: crypto.randomUUID(),
-        date: "2027-07-25",
-        type: "Limpeza",
-        responsible: "Edson",
-        status: "Operacional",
-        notes: "Pequeno acúmulo de poeira removido na base."
-      },
-      {
-        id: crypto.randomUUID(),
-        date: "2027-07-25",
-        type: "Inspeção",
-        responsible: "Edson",
-        status: "Operacional",
-        notes: "Verificação visual concluída e equipamento em conformidade."
-      },
-      {
-        id: crypto.randomUUID(),
-        date: "2027-06-15",
-        type: "Calibração",
-        responsible: "Empresa",
-        status: "Operacional",
-        notes: "Calibração externa realizada conforme procedimento da área."
-      }
-    ]
-  },
-  {
-    id: "CEN-004",
-    name: "Centrífuga 5810",
-    category: "Centrífuga",
-    location: "Sala C02",
-    manufacturer: "Eppendorf",
-    assetNumber: "LNBIO-00210",
-    serial: "5810-1147",
-    acquisitionYear: 2022,
-    status: "Atenção",
-    responsible: "Equipe Operações",
-    publicUrl: "https://labtrack.lnbio/equipamento/CEN-004",
-    qrCode: "QR-CEN-004",
-    lastCleaning: "2027-07-20",
-    lastInspection: "2027-07-18",
-    lastCalibration: "2027-05-12",
-    nextCalibration: "2027-11-30",
-    technical: {
-      modelo: "5810",
-      capacidade: "15 mL / 50 mL",
-      resolucao: "—",
-      peso: "18 kg",
-      localizacao: "Laboratório de Biologia",
-      manual: "Abrir",
-      pop: "Abrir"
-    },
-    activities: [
-      {
-        id: crypto.randomUUID(),
-        date: "2027-07-20",
-        type: "Limpeza",
-        responsible: "Felipe",
-        status: "Atenção",
-        notes: "Rotação verificou leve acúmulo de resíduos na tampa."
-      },
-      {
-        id: crypto.randomUUID(),
-        date: "2027-07-18",
-        type: "Inspeção",
-        responsible: "Edson",
-        status: "Atenção",
-        notes: "Tampa e vedação conferidas; manter acompanhamento."
-      }
-    ]
-  },
-  {
-    id: "FRE-012",
-    name: "Freezer -80°C",
-    category: "Freezer",
-    location: "Sala B08",
-    manufacturer: "Thermo Scientific",
-    assetNumber: "LNBIO-00088",
-    serial: "TFS-8803",
-    acquisitionYear: 2021,
-    status: "Operacional",
-    responsible: "Equipe Operações",
-    publicUrl: "https://labtrack.lnbio/equipamento/FRE-012",
-    qrCode: "QR-FRE-012",
-    lastCleaning: "2027-07-22",
-    lastInspection: "2027-07-22",
-    lastCalibration: "2027-04-10",
-    nextCalibration: "2027-10-10",
-    technical: {
-      modelo: "TSX Series",
-      capacidade: "687 L",
-      resolucao: "—",
-      peso: "290 kg",
-      localizacao: "Laboratório Central",
-      manual: "Abrir",
-      pop: "Abrir"
-    },
-    activities: [
-      {
-        id: crypto.randomUUID(),
-        date: "2027-07-22",
-        type: "Limpeza",
-        responsible: "Edson",
-        status: "Operacional",
-        notes: "Limpeza externa e verificação de temperatura concluída."
-      },
-      {
-        id: crypto.randomUUID(),
-        date: "2027-07-22",
-        type: "Inspeção",
-        responsible: "Edson",
-        status: "Operacional",
-        notes: "Acesso lateral e sistema de vedação conferidos."
-      }
-    ]
-  }
-];
-
-const inventoryCatalog = [
-  { id: "LNB-BAL-001", name: "Balança Analítica AX223 - Ohaus", category: "Balança" },
-  { id: "LNB-BAL-002", name: "Balança Analítica Pioneer - Ohaus", category: "Balança" },
-  { id: "LNB-BAL-003", name: "Balança Analítica M214Ai - Bel", category: "Balança" },
-  { id: "LNB-EQP-001", name: "Centrífuga 5810R - Eppendorf", category: "Centrífuga" },
-  { id: "LNB-EQP-007", name: "Centrífuga MiniSpin C1008-P - Interprise", category: "Centrífuga" },
-  { id: "LNB-EQP-033", name: "Centrífuga de placas Platefuge C2000- Benchmark", category: "Centrífuga" },
-  { id: "LNB-EQP-053", name: "pHmetro Orion 720 - Thermo Scientific", category: "pHmetro" },
-  { id: "LNB-EQP-067", name: "pHmetro Accumet AB15 - FisherBrand", category: "pHmetro" },
-  { id: "LNB-EQP-147", name: "pHmetro Orion 420A+ - Thermo Scientific", category: "pHmetro" },
-  { id: "LNB-VOX-001", name: "Agitador Vortex Standard - VWR", category: "Agitador vortex" },
-  { id: "LNB-EQP-013", name: "Agitador magnético com aquecimento Isotemp - FisherBrand", category: "Agitador magnético" },
-  { id: "LNB-AUT-001", name: "Autoclave vertical AV Plus - Phoenix Luferco", category: "Autoclave" },
-  { id: "LNB-FRZ-001", name: "Freezer MDF-U333 - Sanyo", category: "Freezer" },
-  { id: "LNB-MIC-001", name: "Microscópio Evos M5000 - Thermo Scientific", category: "Microscópio" },
-  { id: "LNB-ESP-001", name: "Espectrofotômetro V-730 - Jasco", category: "Espectrofotômetro" },
-  { id: "LNB-INC-001", name: "Incubadora CO2 3111 - Thermo Scientific", category: "Incubadora" },
-  { id: "LNB-BOV-001", name: "Bomba de vácuo Diapump - Fanem", category: "Bomba de vácuo" },
-  { id: "LNB-CSB-001", name: "Cabine de segurança biológica Biosafe A1 - Veco", category: "Cabine de segurança biológica" }
-];
-
-function createInventoryEquipment(item) {
-  return {
-    id: item.id,
-    name: item.name,
-    category: item.category,
-    location: "Não informada na planilha",
-    manufacturer: "Não informado separadamente na planilha",
-    assetNumber: "Não informado",
-    serial: "Não informado",
-    acquisitionYear: "Não informado",
-    status: "Não verificado",
-    responsible: "Não informado",
-    publicUrl: "",
-    qrCode: `QR-${item.id}`,
-    lastCleaning: "",
-    lastInspection: "",
-    lastCalibration: "",
-    nextCalibration: "",
-    inventorySource: "Inventario_Tags_LNBIO_V3.xlsx",
-    technical: {
-      modelo: "Consultar nome/modelo do inventário",
-      documentacao: "Não cadastrada"
-    },
-    activities: []
-  };
-}
-
 let state = {
-  equipment: loadEquipment(),
+  equipment: [],
   selectedId: null,
   currentTab: "overview",
+  currentUser: null,
+  authEnabled: true,
+  revisingActivityId: null,
+  reviewRequest: null,
 };
 
 const els = {
+  loginView: document.querySelector("#loginView"),
+  appShell: document.querySelector("#appShell"),
+  loginForm: document.querySelector("#loginForm"),
+  loginUsername: document.querySelector("#loginUsername"),
+  loginPassword: document.querySelector("#loginPassword"),
+  loginMessage: document.querySelector("#loginMessage"),
+  setupForm: document.querySelector("#setupForm"),
+  setupMessage: document.querySelector("#setupMessage"),
+  currentUserLabel: document.querySelector("#currentUserLabel"),
+  logoutBtn: document.querySelector("#logoutBtn"),
+  userManagementBtn: document.querySelector("#userManagementBtn"),
+  userManagementModal: document.querySelector("#userManagementModal"),
+  userForm: document.querySelector("#userForm"),
+  userEquipmentAccess: document.querySelector("#userEquipmentAccess"),
+  userList: document.querySelector("#userList"),
+  closeUserManagementBtn: document.querySelector("#closeUserManagementBtn"),
+  reviewModal: document.querySelector("#reviewModal"),
+  reviewForm: document.querySelector("#reviewForm"),
+  reviewModalTitle: document.querySelector("#reviewModalTitle"),
+  reviewModalHint: document.querySelector("#reviewModalHint"),
+  reviewerNameField: document.querySelector("#reviewerNameField"),
+  reviewerName: document.querySelector("#reviewerName"),
+  reviewComments: document.querySelector("#reviewComments"),
+  closeReviewModalBtn: document.querySelector("#closeReviewModalBtn"),
+  cancelReviewBtn: document.querySelector("#cancelReviewBtn"),
   equipmentSelect: document.querySelector("#equipmentSelect"),
   equipmentSuggestions: document.querySelector("#equipmentSuggestions"),
   identifyEquipmentForm: document.querySelector("#identifyEquipmentForm"),
@@ -234,36 +67,88 @@ const els = {
 const tabButtons = [...document.querySelectorAll(".tab-btn")];
 const navButtons = [...document.querySelectorAll(".nav-btn")];
 
-function loadEquipment() {
+async function apiRequest(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: {
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...options.headers
+    },
+    cache: "no-store"
+  });
+  let payload = {};
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const parsed = saved ? JSON.parse(saved) : defaultEquipment;
-    const equipment = Array.isArray(parsed) && parsed.length ? parsed : [...defaultEquipment];
-    const existingIds = new Set(equipment.map(item => item.id));
-    const newInventoryItems = inventoryCatalog
-      .filter(item => !existingIds.has(item.id))
-      .map(createInventoryEquipment);
-
-    if (!saved || newInventoryItems.length) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([...equipment, ...newInventoryItems]));
-    }
-
-    return [...equipment, ...newInventoryItems];
+    payload = await response.json();
   } catch (error) {
-    console.error("Não foi possível carregar ou atualizar o inventário salvo neste navegador.", error);
-    window.alert("Não foi possível atualizar o inventário salvo. Confira as permissões e o espaço disponível neste navegador.");
-    return [...defaultEquipment, ...inventoryCatalog.map(createInventoryEquipment)];
+    console.error("O servidor retornou uma resposta que não pôde ser lida.", error);
+    throw new Error("Não foi possível interpretar a resposta do servidor.");
+  }
+  if (!response.ok) {
+    if (response.status === 401 && path !== "/api/login" && state.currentUser) {
+      showLogin("Sua sessão expirou. Entre novamente.");
+    }
+    throw new Error(payload.error || `Falha na solicitação (${response.status}).`);
+  }
+  return payload;
+}
+
+function showLogin(message = "") {
+  state.currentUser = null;
+  state.equipment = [];
+  els.loginView.classList.remove("hidden");
+  els.appShell.classList.add("hidden");
+  els.loginForm.classList.remove("hidden");
+  els.setupForm.classList.add("hidden");
+  els.loginMessage.textContent = message;
+}
+
+async function enterApplication(user) {
+  state.currentUser = user;
+  state.equipment = (await apiRequest("/api/equipment")).equipment;
+  els.loginView.classList.add("hidden");
+  els.appShell.classList.remove("hidden");
+  els.currentUserLabel.textContent = user.authenticated
+    ? `${user.name} · ${user.roleName}`
+    : "Acesso sem autenticação · nomes declarados";
+  els.logoutBtn.classList.toggle("hidden", !user.authenticated);
+  els.userManagementBtn.classList.toggle("hidden", !user.authenticated || user.role !== "admin");
+  els.newEquipmentBtn.classList.toggle("hidden", user.role !== "admin");
+  render();
+}
+
+function openEquipmentFromUrl() {
+  const tag = new URLSearchParams(window.location.search).get("tag");
+  if (tag) {
+    els.tagInput.value = tag;
+    selectEquipment(tag);
+  } else {
+    showView("home");
   }
 }
 
-function saveEquipment() {
+async function initialize() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.equipment));
-    return true;
+    const health = await apiRequest("/api/health");
+    state.authEnabled = health.authEnabled;
+    if (health.authEnabled && health.setupRequired) {
+      els.loginView.classList.remove("hidden");
+      els.appShell.classList.add("hidden");
+      els.loginForm.classList.add("hidden");
+      els.setupForm.classList.remove("hidden");
+      return;
+    }
+    const session = await apiRequest("/api/session");
+    if (!session.user) {
+      showLogin();
+      return;
+    }
+    await enterApplication(session.user);
+    openEquipmentFromUrl();
   } catch (error) {
-    console.error("Não foi possível salvar os dados do LabTrack neste navegador.", error);
-    window.alert("Não foi possível salvar os dados neste navegador. Verifique o espaço disponível e tente novamente.");
-    return false;
+    if (error.message !== "Entre para continuar.") {
+      els.loginMessage.textContent = error.message;
+    }
+    showLogin(els.loginMessage.textContent);
   }
 }
 
@@ -309,6 +194,12 @@ function renderDashboard() {
   const total = state.equipment.length;
   const conforming = state.equipment.filter(item => item.status === "Operacional").length;
   const unverified = state.equipment.filter(item => item.status === "Não verificado").length;
+  const pendingActivities = state.equipment.reduce(
+    (total, item) => total + (item.activities || []).filter(record =>
+      ["pending", "changes_requested"].includes(record.reviewStatus)
+    ).length,
+    0
+  );
   const daysSince = value => {
     if (!value) return null;
     const date = new Date(`${value}T00:00:00`);
@@ -335,6 +226,7 @@ function renderDashboard() {
     { label: "Equipamentos cadastrados", value: total, trend: "Base do inventário" },
     { label: "Status operacional", value: conforming, trend: "Registros classificados como operacional" },
     { label: "Sem verificação", value: unverified, trend: "Sem status técnico confirmado" },
+    { label: "Atividades para revisar", value: pendingActivities, trend: "Aguardando decisão técnica" },
     { label: "Pendentes de limpeza", value: pendingCleaning, trend: "> 30 dias" },
     { label: "Pendentes de inspeção", value: pendingInspection, trend: "> 45 dias" },
     { label: "Calibração próxima", value: calibrationSoon, trend: "próximos 45 dias" }
@@ -385,10 +277,10 @@ function renderTabContent(selected) {
         <article class="overview-item"><span>Localização</span><strong>${escapeHtml(selected.location || "Não informada")}</strong></article>
         <article class="overview-item"><span>Situação registrada</span><strong>${escapeHtml(selected.status || "Não verificado")}</strong></article>
       </div>
-      ${selected.inventorySource ? `<p class="source-note">Identificação importada da planilha de inventário. Localização, status e histórico ainda precisam ser confirmados.</p>` : ""}
+      ${selected.inventorySource ? `<p class="source-note">Identificação importada da planilha de inventário. Dados não fornecidos por ela permanecem como não informados.</p>` : ""}
       <button type="button" class="primary-btn overview-action" id="startEquipmentActivityBtn">Registrar uma atividade</button>
     `;
-    els.tabContent.querySelector("#startEquipmentActivityBtn").addEventListener("click", openModal);
+    els.tabContent.querySelector("#startEquipmentActivityBtn").addEventListener("click", () => openModal());
     return;
   }
 
@@ -396,6 +288,8 @@ function renderTabContent(selected) {
     const records = [...(selected.activities || [])].sort((a, b) =>
       new Date(getRecordTimestamp(b)) - new Date(getRecordTimestamp(a))
     );
+    const canReview = !state.currentUser?.authenticated
+      || ["admin", "technical"].includes(state.currentUser?.role);
     els.tabContent.innerHTML = `
       <div class="history-toolbar">
         <p>Relatórios e exportação referentes a <strong>${escapeHtml(selected.id)}</strong>.</p>
@@ -408,15 +302,28 @@ function renderTabContent(selected) {
             <div class="record-date">${escapeHtml(formatRecordDateTime(record))}</div>
             <div class="record-body">
               <strong>${escapeHtml(record.type)}</strong>
-              <span>Realizado por: ${escapeHtml(record.responsible)}</span>
+              <span>Realizado por: ${escapeHtml(record.responsible)} · ${record.actorAuthenticated ? "identidade autenticada" : "nome declarado, não autenticado"}</span>
               <span>Situação registrada: ${escapeHtml(record.status || selected.status || "—")}</span>
+              <span>Revisão: ${escapeHtml(recordReviewStatusLabel(record))}</span>
               ${record.checklist?.length ? `<ul class="record-checklist">${record.checklist.map(item => `
                 <li>${escapeHtml(item.description)} — ${escapeHtml(item.result)}</li>
               `).join("")}</ul>` : ""}
+              ${record.revisionNumber ? `<span>Versão corrigida: ${record.revisionNumber}</span>` : ""}
               <p>${escapeHtml(record.notes || "Sem observações adicionais.")}</p>
+              ${record.reviews?.map(review => `<p class="review-note">${escapeHtml(reviewStatusLabel(review.decision))} por ${escapeHtml(review.reviewer.name)}${review.reviewer.authenticated ? "" : " (nome declarado, não autenticado)"} · ${escapeHtml(formatRecordDateTime({ createdAt: review.createdAt }))}${review.comments ? ` · ${escapeHtml(review.comments)}` : ""}</p>`).join("") || ""}
+              ${record.reviewStatus === "changes_requested" && (!state.currentUser?.authenticated || record.actor?.id === state.currentUser?.id) ? `
+                <button type="button" class="secondary-btn small correction-btn" data-record-id="${escapeHtml(record.id)}">Enviar correção solicitada</button>
+              ` : ""}
+              ${canReview && (!state.currentUser?.authenticated || record.actor?.id !== state.currentUser?.id) && record.reviewStatus === "pending" ? `
+                <div class="review-actions">
+                  <button type="button" class="primary-btn small review-btn" data-record-id="${escapeHtml(record.id)}" data-decision="approved">Aprovar</button>
+                  <button type="button" class="secondary-btn small review-btn" data-record-id="${escapeHtml(record.id)}" data-decision="changes_requested">Solicitar correção</button>
+                  <button type="button" class="secondary-btn small review-btn" data-record-id="${escapeHtml(record.id)}" data-decision="rejected">Reprovar</button>
+                </div>
+              ` : ""}
               <button type="button" class="secondary-btn small report-btn" data-record-id="${escapeHtml(record.id)}">Abrir relatório</button>
             </div>
-            <span class="badge ${statusClass(record.status || selected.status)}">${escapeHtml(record.status || selected.status || "—")}</span>
+            <span class="badge ${reviewStatusClass(record.reviewStatus)}">${escapeHtml(recordReviewStatusLabel(record))}</span>
           </article>
         `).join("")}
       </div>
@@ -426,6 +333,15 @@ function renderTabContent(selected) {
     els.tabContent.querySelectorAll(".report-btn").forEach(button => {
       button.addEventListener("click", () => openActivityReport(selected, button.dataset.recordId));
     });
+    els.tabContent.querySelectorAll(".review-btn").forEach(button => {
+      button.addEventListener("click", () => reviewActivity(button.dataset.recordId, button.dataset.decision));
+    });
+    els.tabContent.querySelectorAll(".correction-btn").forEach(button => {
+      button.addEventListener("click", () => {
+        const record = records.find(item => item.id === button.dataset.recordId);
+        if (record) openModal(record);
+      });
+    });
     return;
   }
 
@@ -434,7 +350,7 @@ function renderTabContent(selected) {
       <div class="public-status-card">
         <div class="public-header">
           <div>
-            <p class="eyebrow">Status público</p>
+            <p class="eyebrow">Status do equipamento</p>
             <h3>${escapeHtml(selected.name)}</h3>
           </div>
           <span class="badge ${statusClass(selected.status)}">${escapeHtml(selected.status)}</span>
@@ -480,6 +396,78 @@ function renderTabContent(selected) {
 
 }
 
+function reviewStatusLabel(status) {
+  return ({
+    pending: "Pendente de revisão",
+    approved: "Aprovado",
+    rejected: "Reprovado",
+    changes_requested: "Correção solicitada"
+  })[status] || "Não informado";
+}
+
+function recordReviewStatusLabel(record) {
+  const latestReview = record.reviews?.[record.reviews.length - 1];
+  const label = reviewStatusLabel(record.reviewStatus);
+  return latestReview && !latestReview.reviewer.authenticated
+    ? `${label} · decisão não autenticada`
+    : label;
+}
+
+function reviewStatusClass(status) {
+  return ({
+    pending: "warning",
+    approved: "success",
+    rejected: "danger",
+    changes_requested: "warning"
+  })[status] || "neutral";
+}
+
+function reviewActivity(activityId, decision) {
+  state.reviewRequest = { activityId, decision };
+  const labels = {
+    approved: [
+      "Aprovar atividade",
+      state.currentUser?.authenticated
+        ? "O comentário é opcional. A aprovação atualizará a situação oficial do equipamento."
+        : "O comentário é opcional. Esta decisão ficará identificada como não autenticada e não alterará a situação oficial do equipamento."
+    ],
+    rejected: ["Reprovar atividade", "Descreva o motivo da reprovação."],
+    changes_requested: ["Solicitar correção", "Descreva a correção necessária para o responsável pelo registro."]
+  };
+  [els.reviewModalTitle.textContent, els.reviewModalHint.textContent] = labels[decision];
+  els.reviewComments.required = decision !== "approved";
+  els.reviewerNameField.classList.toggle("hidden", state.currentUser?.authenticated);
+  els.reviewerName.required = !state.currentUser?.authenticated;
+  els.reviewForm.reset();
+  els.reviewModal.classList.remove("hidden");
+  (state.currentUser?.authenticated ? els.reviewComments : els.reviewerName).focus();
+}
+
+function closeReviewModal() {
+  els.reviewModal.classList.add("hidden");
+  els.reviewForm.reset();
+  state.reviewRequest = null;
+}
+
+async function submitReview(event) {
+  event.preventDefault();
+  if (!state.reviewRequest) return;
+  const { activityId, decision } = state.reviewRequest;
+  const comments = els.reviewComments.value.trim();
+  const reviewerName = els.reviewerName.value.trim();
+  try {
+    await apiRequest(`/api/activities/${encodeURIComponent(activityId)}/review`, {
+      method: "POST",
+      body: JSON.stringify({ decision, comments, reviewerName })
+    });
+    state.equipment = (await apiRequest("/api/equipment")).equipment;
+    closeReviewModal();
+    render();
+  } catch (error) {
+    window.alert(`Não foi possível registrar a decisão: ${error.message}`);
+  }
+}
+
 function renderPublicStatus() {
   const selected = getSelectedEquipment();
   if (!selected) {
@@ -490,7 +478,7 @@ function renderPublicStatus() {
   els.publicStatusCard.innerHTML = `
     <div class="public-header">
       <div>
-        <p class="eyebrow">Consulta pública</p>
+        <p class="eyebrow">Status do equipamento</p>
         <h3>${escapeHtml(selected.name)}</h3>
       </div>
       <span class="badge ${statusClass(selected.status)}">${escapeHtml(selected.status)}</span>
@@ -536,9 +524,10 @@ function escapeCsv(value) {
 function exportEquipmentCsv() {
   const selected = getSelectedEquipment();
   if (!selected) return;
-  const rows = [["TAG", "Equipamento", "Data e hora", "Atividade", "Responsável informado", "Situação", "Item do checklist", "Resultado", "Observações"]];
+  const rows = [["TAG", "Equipamento", "Data e hora", "Atividade", "Responsável", "Identidade autenticada", "Situação registrada", "Revisão", "Revisor", "Identidade do revisor autenticada", "Data da revisão", "Comentário da revisão", "Item do checklist", "Resultado", "Observações"]];
   for (const record of selected.activities || []) {
     const checklist = record.checklist?.length ? record.checklist : [{ description: "", result: "" }];
+    const latestReview = record.reviews?.[record.reviews.length - 1];
     for (const item of checklist) {
       rows.push([
         selected.id,
@@ -546,7 +535,13 @@ function exportEquipmentCsv() {
         formatRecordDateTime(record),
         record.type,
         record.responsible,
+        record.actorAuthenticated ? "Sim" : "Não",
         record.status,
+        recordReviewStatusLabel(record),
+        latestReview?.reviewer?.name || "",
+        latestReview?.reviewer?.authenticated ? "Sim" : "Não",
+        latestReview ? formatRecordDateTime({ createdAt: latestReview.createdAt }) : "",
+        latestReview?.comments || "",
         item.description,
         item.result,
         record.notes
@@ -601,14 +596,16 @@ function openActivityReport(equipment, recordId) {
           <p><strong>TAG:</strong> ${escapeHtml(equipment.id)}</p>
           <p><strong>Atividade:</strong> ${escapeHtml(record.type)}</p>
           <p><strong>Data e hora:</strong> ${escapeHtml(formatRecordDateTime(record))}</p>
-          <p><strong>Responsável informado:</strong> ${escapeHtml(record.responsible)}</p>
+          <p><strong>Responsável ${record.actorAuthenticated ? "(autenticado)" : "(nome declarado, não autenticado)"}:</strong> ${escapeHtml(record.responsible)}</p>
           <p><strong>Situação registrada:</strong> ${escapeHtml(record.status || "—")}</p>
         </div>
         <h2>Checklist do que foi realizado</h2>
         <table><thead><tr><th>Ação registrada</th><th>Resultado</th></tr></thead><tbody>${checklistRows}</tbody></table>
         <h2>Observações e resultados</h2>
         <p>${escapeHtml(record.notes || "Sem observações adicionais.")}</p>
-        <p class="notice">Relatório gerado pelo protótipo LabTrack. O nome do responsável é informado no formulário e não constitui autenticação ou assinatura. Este documento não representa aprovação técnica.</p>
+        <h2>Revisões</h2>
+        ${record.reviews?.length ? `<ul>${record.reviews.map(review => `<li>${escapeHtml(reviewStatusLabel(review.decision))} por ${escapeHtml(review.reviewer.name)}${review.reviewer.authenticated ? "" : " (nome declarado, não autenticado)"} em ${escapeHtml(formatRecordDateTime({ createdAt: review.createdAt }))}${review.comments ? `: ${escapeHtml(review.comments)}` : ""}</li>`).join("")}</ul>` : "<p>Registro pendente de revisão.</p>"}
+        <p class="notice">Este relatório reflete registros armazenados no servidor. ${record.actorAuthenticated ? "A revisão técnica não substitui critérios metrológicos aprovados nem assinatura eletrônica institucional." : "Nomes e decisões estão não autenticados; decisões neste modo não alteram a situação oficial do equipamento."}</p>
       </body>
     </html>`);
   reportWindow.document.close();
@@ -671,19 +668,37 @@ function selectEquipment(id) {
   render();
 }
 
-function openModal() {
+function openModal(revisionRecord = null) {
   const selected = getSelectedEquipment();
   if (!selected) return;
+  state.revisingActivityId = revisionRecord?.id || null;
   els.activityForm.reset();
+  els.activityForm.elements.responsible.value = state.currentUser.authenticated ? state.currentUser.name : "";
+  els.activityForm.elements.responsible.readOnly = state.currentUser.authenticated;
   els.checklistItems.replaceChildren();
-  addChecklistItem();
-  els.modalTitle.textContent = `Registrar atividade · ${selected.name}`;
+  if (revisionRecord) {
+    els.activityForm.elements.type.value = revisionRecord.type;
+    els.activityForm.elements.status.value = revisionRecord.status;
+    els.activityForm.elements.notes.value = revisionRecord.notes || "";
+    revisionRecord.checklist.forEach(item => {
+      addChecklistItem();
+      const row = els.checklistItems.lastElementChild;
+      row.querySelector('[name="checklistDescription"]').value = item.description;
+      row.querySelector('[name="checklistResult"]').value = item.result;
+    });
+  } else {
+    addChecklistItem();
+  }
+  els.modalTitle.textContent = revisionRecord
+    ? `Enviar correção · ${selected.name}`
+    : `Registrar atividade · ${selected.name}`;
   els.modalBackdrop.classList.remove("hidden");
 }
 
 function closeModal() {
   els.modalBackdrop.classList.add("hidden");
   els.activityForm.reset();
+  state.revisingActivityId = null;
 }
 
 function openEquipmentModal() {
@@ -695,7 +710,7 @@ function closeEquipmentModal() {
   els.equipmentForm.reset();
 }
 
-function addRecord(event) {
+async function addRecord(event) {
   event.preventDefault();
   const selected = getSelectedEquipment();
   if (!selected) return;
@@ -709,48 +724,31 @@ function addRecord(event) {
     window.alert("Preencha a descrição de cada item do checklist ou remova os itens vazios.");
     return;
   }
-  const now = new Date();
-  const createdAt = now.toISOString();
-  const localDate = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0")
-  ].join("-");
-  const record = {
-    id: crypto.randomUUID(),
-    date: localDate,
-    createdAt,
-    type: formData.get("type"),
-    responsible: formData.get("responsible").toString().trim(),
-    status: formData.get("status"),
-    checklist,
-    notes: formData.get("notes").toString().trim()
-  };
-
-  const previousStatus = selected.status;
-  const previousCleaning = selected.lastCleaning;
-  const previousInspection = selected.lastInspection;
-  const previousCalibration = selected.lastCalibration;
-  selected.activities.push(record);
-  selected.status = record.status;
-
-  if (record.type === "Limpeza") selected.lastCleaning = record.date;
-  if (record.type === "Inspeção" || record.type === "Verificação" || record.type === "Observação") {
-    selected.lastInspection = record.date;
+  try {
+    const record = {
+      type: formData.get("type"),
+      status: formData.get("status"),
+      responsible: formData.get("responsible").toString().trim(),
+      checklist,
+      notes: formData.get("notes").toString().trim()
+    };
+    const revisionPath = state.revisingActivityId
+      ? `/api/activities/${encodeURIComponent(state.revisingActivityId)}/revisions`
+      : "/api/activities";
+    await apiRequest(revisionPath, {
+      method: "POST",
+      body: JSON.stringify(state.revisingActivityId ? { record } : {
+        equipmentTag: selected.id,
+        record
+      })
+    });
+    state.equipment = (await apiRequest("/api/equipment")).equipment;
+    state.currentTab = "records";
+    closeModal();
+    render();
+  } catch (error) {
+    window.alert(`Não foi possível salvar o registro: ${error.message}`);
   }
-  if (record.type === "Calibração" || record.type === "Calibração diária") selected.lastCalibration = record.date;
-
-  if (!saveEquipment()) {
-    selected.activities.pop();
-    selected.status = previousStatus;
-    selected.lastCleaning = previousCleaning;
-    selected.lastInspection = previousInspection;
-    selected.lastCalibration = previousCalibration;
-    return;
-  }
-  state.currentTab = "records";
-  closeModal();
-  render();
 }
 
 function addChecklistItem() {
@@ -775,57 +773,178 @@ function addChecklistItem() {
   els.checklistItems.append(row);
 }
 
-function addEquipment(event) {
+async function addEquipment(event) {
   event.preventDefault();
   const formData = new FormData(els.equipmentForm);
   const code = formData.get("code").toString().trim().toUpperCase();
-  const name = formData.get("name").toString().trim();
-  const category = formData.get("category").toString().trim();
-  const location = formData.get("location").toString().trim();
-  const manufacturer = formData.get("manufacturer").toString().trim() || "Não informado";
-  const assetNumber = formData.get("asset").toString().trim() || "Não informado";
-  if (state.equipment.some(item => item.id.toLowerCase() === code.toLowerCase())) {
-    window.alert(`A TAG "${code}" já está cadastrada.`);
-    return;
-  }
-
-  const newItem = {
+  const body = {
     id: code,
-    name,
-    category,
-    location,
-    manufacturer,
-    assetNumber,
-    serial: "Não informado",
-    acquisitionYear: "Não informado",
-    status: "Não verificado",
-    responsible: "Não informado",
-    publicUrl: "",
-    qrCode: `QR-${code}`,
-    lastCleaning: "",
-    lastInspection: "",
-    lastCalibration: "",
-    nextCalibration: "",
-    technical: {
-      modelo: "Não informado",
-      localizacao: location,
-      documentacao: "Não cadastrada"
-    },
-    activities: []
+    name: formData.get("name").toString().trim(),
+    category: formData.get("category").toString().trim(),
+    location: formData.get("location").toString().trim(),
+    manufacturer: formData.get("manufacturer").toString().trim(),
+    assetNumber: formData.get("asset").toString().trim()
   };
-
-  state.equipment.unshift(newItem);
-  state.selectedId = newItem.id;
-  if (!saveEquipment()) {
-    state.equipment.shift();
-    return;
+  try {
+    const result = await apiRequest("/api/equipment", {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+    state.equipment = [result.equipment, ...(await apiRequest("/api/equipment")).equipment
+      .filter(item => item.id !== result.equipment.id)];
+    state.selectedId = result.equipment.id;
+    closeEquipmentModal();
+    render();
+    showView("equipment");
+  } catch (error) {
+    window.alert(`Não foi possível cadastrar o equipamento: ${error.message}`);
   }
-  closeEquipmentModal();
-  render();
-  showView("equipment");
 }
 
-els.activityBtn.addEventListener("click", openModal);
+async function loadUsers() {
+  try {
+    const result = await apiRequest("/api/users");
+    els.userEquipmentAccess.innerHTML = state.equipment.map(item =>
+      `<option value="${escapeHtml(item.id)}">${escapeHtml(item.id)} · ${escapeHtml(item.name)}</option>`
+    ).join("");
+    els.userList.innerHTML = result.users.map(user => `
+      <article class="user-list-item">
+        <strong>${escapeHtml(user.name)}</strong>
+        <span>${escapeHtml(user.username)} · ${escapeHtml(user.roleName)} · ${user.active ? "Ativo" : "Inativo"}</span>
+        ${user.role === "admin" ? "<span>Acesso a todos os equipamentos.</span>" : `
+          <label>Equipamentos autorizados
+            <select class="user-access-edit" data-username="${escapeHtml(user.username)}" multiple size="4">
+              ${state.equipment.map(item => `<option value="${escapeHtml(item.id)}" ${user.equipmentTags.includes(item.id) ? "selected" : ""}>${escapeHtml(item.id)} · ${escapeHtml(item.name)}</option>`).join("")}
+            </select>
+          </label>
+          <button type="button" class="secondary-btn small save-user-access-btn" data-username="${escapeHtml(user.username)}">Salvar permissões</button>
+        `}
+      </article>
+    `).join("") || '<p class="empty-state">Nenhum usuário cadastrado.</p>';
+    els.userList.querySelectorAll(".save-user-access-btn").forEach(button => {
+      button.addEventListener("click", async () => {
+        const select = button.parentElement.querySelector(".user-access-edit");
+        try {
+          await apiRequest(`/api/users/${encodeURIComponent(button.dataset.username)}`, {
+            method: "PUT",
+            body: JSON.stringify({ equipmentTags: [...select.selectedOptions].map(option => option.value) })
+          });
+          window.alert("Permissões de acesso atualizadas.");
+          await loadUsers();
+        } catch (error) {
+          window.alert(`Não foi possível atualizar as permissões: ${error.message}`);
+        }
+      });
+    });
+  } catch (error) {
+    window.alert(`Não foi possível carregar os usuários: ${error.message}`);
+  }
+}
+
+async function addUser(event) {
+  event.preventDefault();
+  const formData = new FormData(els.userForm);
+  const body = {
+    name: formData.get("name").toString().trim(),
+    username: formData.get("username").toString().trim(),
+    password: formData.get("password").toString(),
+    role: formData.get("role"),
+    equipmentTags: formData.getAll("equipmentTags")
+  };
+  try {
+    await apiRequest("/api/users", {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+    els.userForm.reset();
+    await loadUsers();
+  } catch (error) {
+    window.alert(`Não foi possível criar o usuário: ${error.message}`);
+  }
+}
+
+function openUserManagement() {
+  els.userManagementModal.classList.remove("hidden");
+  loadUsers();
+}
+
+function closeUserManagement() {
+  els.userManagementModal.classList.add("hidden");
+  els.userForm.reset();
+}
+
+els.loginForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  els.loginMessage.textContent = "";
+  const body = {
+    username: els.loginUsername.value.trim(),
+    password: els.loginPassword.value
+  };
+  try {
+    const result = await apiRequest("/api/login", {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+    els.loginPassword.value = "";
+    await enterApplication(result.user);
+    openEquipmentFromUrl();
+  } catch (error) {
+    els.loginMessage.textContent = error.message;
+  }
+});
+
+els.setupForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  els.setupMessage.textContent = "";
+  const formData = new FormData(els.setupForm);
+  const credentials = {
+    name: formData.get("name").toString().trim(),
+    username: formData.get("username").toString().trim().toLowerCase(),
+    password: formData.get("password").toString()
+  };
+  try {
+    await apiRequest("/api/setup", {
+      method: "POST",
+      body: JSON.stringify(credentials)
+    });
+    const result = await apiRequest("/api/login", {
+      method: "POST",
+      body: JSON.stringify({
+        username: credentials.username,
+        password: credentials.password
+      })
+    });
+    els.setupForm.reset();
+    await enterApplication(result.user);
+    openEquipmentFromUrl();
+  } catch (error) {
+    els.setupMessage.textContent = error.message;
+  }
+});
+
+els.logoutBtn.addEventListener("click", async () => {
+  try {
+    await apiRequest("/api/logout", { method: "POST", body: "{}" });
+    showLogin("Você saiu do LabTrack.");
+  } catch (error) {
+    window.alert(`Não foi possível encerrar a sessão: ${error.message}`);
+  }
+});
+
+els.userManagementBtn.addEventListener("click", openUserManagement);
+els.closeUserManagementBtn.addEventListener("click", closeUserManagement);
+els.userManagementModal.addEventListener("click", event => {
+  if (event.target === els.userManagementModal) closeUserManagement();
+});
+els.userForm.addEventListener("submit", addUser);
+els.reviewForm.addEventListener("submit", submitReview);
+els.closeReviewModalBtn.addEventListener("click", closeReviewModal);
+els.cancelReviewBtn.addEventListener("click", closeReviewModal);
+els.reviewModal.addEventListener("click", event => {
+  if (event.target === els.reviewModal) closeReviewModal();
+});
+
+els.activityBtn.addEventListener("click", () => openModal());
 els.copyEquipmentLinkBtn.addEventListener("click", async () => {
   const selected = getSelectedEquipment();
   if (!selected) return;
@@ -876,20 +995,13 @@ document.querySelector("#identifyQrBtn").addEventListener("click", () => {
 });
 navButtons.forEach(button => button.addEventListener("click", () => showView(button.dataset.view)));
 
-document.addEventListener("DOMContentLoaded", () => {
-  render();
-  const tag = new URLSearchParams(window.location.search).get("tag");
-  if (tag) {
-    els.tagInput.value = tag;
-    selectEquipment(tag);
-  } else {
-    showView("home");
-  }
-});
+document.addEventListener("DOMContentLoaded", initialize);
 
 window.addEventListener("keydown", event => {
   if (event.key === "Escape") {
     closeModal();
     closeEquipmentModal();
+    closeUserManagement();
+    closeReviewModal();
   }
 });

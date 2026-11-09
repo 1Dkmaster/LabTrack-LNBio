@@ -1,53 +1,86 @@
 # LabTrack-LNBio
 
-Primeira versão de protótipo do sistema de rastreabilidade e verificação de equipamentos do laboratório.
+Aplicação web com API local em Python e banco SQLite. A interface e a API são servidas pela mesma origem; equipamentos, usuários, atividades, revisões e auditoria ficam no banco do servidor, não no `localStorage` do navegador.
 
-## Visão geral
+## Executar no Windows
 
-Este projeto implementa uma versão funcional inicial do LabTrack LNBio, com foco em:
+Requer Python 3.10 ou superior. Abra um terminal na pasta do projeto:
 
-- dashboard de indicadores;
-- cadastro e listagem de equipamentos;
-- histórico de atividades por equipamento;
-- status público para consulta rápida;
-- registro de limpeza, inspeção e manutenção;
-- interface demonstrativa sem autenticação;
-- armazenamento local em navegador para prototipagem rápida.
+Se acabou de instalar o Python, reabra o terminal (ou o VS Code) para atualizar o `PATH`.
 
-## Estrutura
+Inicie o servidor:
 
-- `index.html`: estrutura principal da interface
-- `styles.css`: layout e visual do sistema
-- `app.js`: regras de negócio, dados iniciais e interações
+```powershell
+python server.py
+```
 
-## Como executar
+Depois, acesse <http://127.0.0.1:8000>. Na primeira abertura, a tela solicita a criação do administrador: escolha seu nome, usuário e senha. **Não existe credencial padrão.** Após criar a conta, o sistema entra automaticamente; nas próximas aberturas, use o usuário e a senha escolhidos. A senha precisa ter pelo menos 8 caracteres.
 
-1. Abra a pasta do projeto no VS Code.
-2. Inicie um servidor local simples, por exemplo:
-   `python -m http.server 8000`
-3. Acesse `http://localhost:8000` no navegador.
+O banco é criado em `data/labtrack.sqlite3`. Use `LABTRACK_PORT` para escolher outra porta e `LABTRACK_DB_PATH` para definir o local do banco.
 
-## Funcionalidades da versão inicial
+## Modo temporário sem login
 
-- listagem de equipamentos por categoria;
-- identificação por TAG e seleção por categoria;
-- painel de indicadores do laboratório;
-- identificação pelo seletor de equipamentos ou pela TAG;
-- seleção de equipamentos agrupada por categoria;
-- catálogo inicial com 18 equipamentos identificados na planilha `Inventario_Tags_LNBIO_V3.xlsx`;
-- registro de verificação, calibração diária, manutenção e limpeza com responsável informado, checklist preenchido e data/hora automáticas;
-- histórico individual, relatório para impressão/salvamento em PDF e exportação CSV compatível com planilhas;
-- aba de status público para consulta rápida;
-- dados técnicos do equipamento;
-- link de identificação por TAG para associar a um QR físico;
-- cadastro de novos equipamentos no navegador.
+O acesso autenticado é o padrão. O modo temporário sem login pode ser habilitado explicitamente definindo `$env:LABTRACK_AUTH_ENABLED = "0"` antes de iniciar o servidor.
 
-## Observação
+- Ao registrar atividade ou revisão, informe o nome do responsável/revisor. Esses nomes são autodeclarados; a interface, os relatórios e o banco identificam esses registros explicitamente como **não autenticados**.
+- Como não há identificação segura de pessoas, o sistema não consegue confirmar autoria, aplicar permissões individuais ou impedir que a mesma pessoa registre e aprove uma atividade. Uma decisão nesse modo não equivale a uma aprovação institucional e não atualiza a situação técnica oficial do equipamento.
+- O modo local permite acesso aos equipamentos e às rotas operacionais a qualquer pessoa que consiga usar o navegador aberto no computador. Não exponha o servidor à rede, não use dados sensíveis e não trate os registros como evidência de identidade verificada.
+- O modo sem login só inicia em um endereço loopback. O backend rejeita tentativa de configuração em endereço de rede.
 
-Esta é uma versão de protótipo front-end. Os dados ficam somente no navegador e não são sincronizados entre usuários ou dispositivos. A exportação CSV é uma cópia do histórico no momento da exportação, não uma planilha vinculada em tempo real. O link por TAG pode ser associado a um QR físico, mas o sistema ainda não gera imagens QR nem autentica/autoriza usuários. O nome digitado no formulário é declarado pelo operador e não confirma sua identidade.
+## Administração de contas
 
-Os equipamentos e registros iniciais são demonstrativos. Novos equipamentos começam sem histórico ou datas técnicas fictícias. O checklist é preenchido por quem realiza a atividade; critérios técnicos precisam vir de procedimentos aprovados e não são fornecidos pelo protótipo. Não use esta versão como registro oficial, nem para armazenar dados sensíveis.
+No PowerShell, autenticação já está ligada por padrão. Para garantir que não está usando o modo temporário, remova a variável e inicie o servidor:
 
-O catálogo inicial importa uma seleção de TAGs e nomes da planilha de inventário (balanças, centrífugas, pHmetros e outros). A lista é mesclada aos dados já salvos neste navegador sem sobrescrever registros existentes. Localização, status técnico, histórico, fabricante separado e demais campos que não constam na planilha permanecem como não informados ou não verificados.
+```powershell
+Remove-Item Env:LABTRACK_AUTH_ENABLED -ErrorAction SilentlyContinue
+python server.py
+```
 
-Na ficha do equipamento, escolha **Visão geral**, **Histórico** ou **Dados do equipamento** para exibir uma seção por vez. O dashboard não trata a ausência de datas na planilha como limpeza ou inspeção vencida.
+Na primeira execução sem administrador, use o formulário **Criar administrador** na própria página. A configuração inicial só pode ser feita localmente e apenas uma vez. Também é possível criar a conta no terminal com `python server.py create-admin`. Administradores gerenciam contas e permissões por TAG; responsáveis técnicos revisam atividades; operadores registram atividades nos equipamentos atribuídos. Senhas são armazenadas com PBKDF2-HMAC-SHA256 e salt individual, e as sessões usam cookies `HttpOnly` e `SameSite=Strict`.
+
+O servidor determina a autoria pela sessão autenticada e impede que quem registrou a atividade a aprove. O servidor escuta apenas em `127.0.0.1` por padrão.
+
+## Rastreabilidade
+
+- Atividades e revisões são registros separados e não há endpoint para apagá-los. A tabela de auditoria bloqueia `UPDATE` e `DELETE` no SQLite.
+- No modo autenticado, o status oficial só é atualizado quando uma atividade é aprovada. No modo temporário, as decisões ficam no histórico, mas não atualizam os dados técnicos oficiais.
+- Relatórios e exportações indicam se os nomes de responsável e revisor foram autenticados.
+- Endpoints principais: `/api/session`, `/api/equipment`, `/api/activities`, `/api/users` e `/api/audit`.
+
+## Dados iniciais e compatibilidade
+
+O banco começa com os 18 equipamentos identificados no catálogo de inventário já usado pelo projeto. Campos ausentes na planilha continuam marcados como não informados; nenhum histórico técnico fictício é inserido.
+
+Os registros que já existiam no `localStorage` do protótipo **não são apagados nem importados automaticamente**. Essa versão anterior incluía dados demonstrativos e uma migração automática poderia transformar exemplos em registros oficiais. Faça a exportação CSV no navegador antigo e confira os dados antes de qualquer migração manual.
+
+O nome e as TAGs do catálogo são dados de identificação, não critérios de calibração. O sistema ainda **não calcula nem aprova calibração metrológica**: limites, ensaios, incertezas e regras de decisão devem ser configurados somente a partir de procedimentos técnicos aprovados. Não use o checklist genérico como substituto desses procedimentos.
+
+## Backup
+
+Crie uma cópia consistente do banco, inclusive durante a execução do servidor:
+
+```powershell
+python server.py backup
+```
+
+O arquivo será salvo em `data/backups/`. Também é possível informar outro destino:
+
+```powershell
+python server.py backup C:\Backups\labtrack.sqlite3
+```
+
+Guarde os backups fora do diretório servido pela aplicação, proteja o acesso ao arquivo e teste a restauração periodicamente.
+
+## Implantação em servidor institucional
+
+Esta versão usa o servidor HTTP padrão do Python e foi preparada para desenvolvimento e validação em uma única instância; **não a exponha diretamente à internet nem use HTTP em produção**. Para uso por vários dispositivos na rede institucional, hospede-a em servidor administrado, atrás de proxy HTTPS, defina `LABTRACK_COOKIE_SECURE=1`, restrinja `LABTRACK_ALLOWED_HOSTS`, proteja o arquivo SQLite e configure backup e restauração.
+
+A auditoria local não é inviolável contra alguém com acesso administrativo ao host ou ao arquivo do banco. Antes de tratar os dados como registros oficiais, a implantação deve ser revisada pela TI/segurança e pela área técnica, incluindo disponibilidade, retenção, backup, recuperação, gestão de contas e critérios metrológicos aprovados.
+
+## Testes
+
+Execute os testes de API com:
+
+```powershell
+python -m unittest discover -s tests -v
+```

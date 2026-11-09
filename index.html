@@ -10,7 +10,34 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <section id="loginView" class="login-view">
+      <form id="loginForm" class="login-card">
+        <p class="eyebrow">Acesso seguro · LNBio</p>
+        <h1>LabTrack LNBio</h1>
+        <p>Entre com sua conta autorizada para consultar equipamentos e registrar atividades.</p>
+        <label for="loginUsername">Usuário</label>
+        <input id="loginUsername" name="username" type="text" autocomplete="username" maxlength="40" required />
+        <label for="loginPassword">Senha</label>
+        <input id="loginPassword" name="password" type="password" autocomplete="current-password" maxlength="128" required />
+        <button type="submit" class="primary-btn">Entrar</button>
+        <p id="loginMessage" class="form-message" role="status" aria-live="polite"></p>
+      </form>
+      <form id="setupForm" class="login-card hidden">
+        <p class="eyebrow">Configuração inicial</p>
+        <h1>Criar administrador</h1>
+        <p>Esta é a primeira utilização. Crie sua conta de administrador; não existe usuário ou senha padrão.</p>
+        <label for="setupName">Seu nome</label>
+        <input id="setupName" name="name" type="text" autocomplete="name" maxlength="120" required />
+        <label for="setupUsername">Escolha um usuário</label>
+        <input id="setupUsername" name="username" type="text" autocomplete="username" minlength="3" maxlength="40" required />
+        <label for="setupPassword">Crie uma senha (mínimo 8 caracteres)</label>
+        <input id="setupPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required />
+        <button type="submit" class="primary-btn">Criar conta e continuar</button>
+        <p id="setupMessage" class="form-message" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <div id="appShell" class="app-shell hidden">
       <header class="topbar">
         <div>
           <p class="eyebrow">LNBio · Operações Laboratoriais</p>
@@ -20,10 +47,12 @@
           <button type="button" class="secondary-btn small nav-btn" data-view="home">Início</button>
           <button type="button" class="secondary-btn small nav-btn" data-view="dashboard">Painel</button>
           <button type="button" class="secondary-btn small nav-btn" data-view="identify">Equipamentos</button>
-          <button type="button" class="secondary-btn small nav-btn" data-view="public">Consulta pública</button>
+          <button type="button" class="secondary-btn small nav-btn" data-view="public">Status</button>
         </nav>
         <div class="topbar-actions">
-          <span class="prototype-notice">Protótipo local · sem autenticação</span>
+          <span id="currentUserLabel" class="prototype-notice"></span>
+          <button type="button" id="userManagementBtn" class="secondary-btn small hidden">Usuários</button>
+          <button type="button" id="logoutBtn" class="secondary-btn small">Sair</button>
         </div>
       </header>
 
@@ -114,7 +143,7 @@
         <section id="publicView" class="view">
           <div class="section-header">
             <div>
-              <p class="eyebrow">Consulta pública</p>
+              <p class="eyebrow">Status do equipamento</p>
               <h2>Status do equipamento</h2>
             </div>
           </div>
@@ -145,8 +174,8 @@
               </select>
             </label>
             <label>
-              Usuário responsável
-              <input id="activityResponsible" name="responsible" type="text" placeholder="Informe seu nome" autocomplete="name" maxlength="120" required />
+              Responsável (nome declarado, não autenticado)
+              <input id="activityResponsible" name="responsible" type="text" maxlength="120" autocomplete="name" required />
             </label>
             <label>
               Status
@@ -167,7 +196,7 @@
             Observações e resultados
             <textarea id="activityNotes" name="notes" rows="4" maxlength="2000" placeholder="Registre observações, resultados ou pendências"></textarea>
           </label>
-          <p class="form-help">A data e a hora serão registradas automaticamente ao salvar. O nome informado não substitui autenticação de usuário.</p>
+          <p class="form-help">A data e a hora são registradas pelo servidor. No modo temporário, o nome do responsável é autodeclarado e não verificado. O registro ficará pendente até uma decisão de revisão.</p>
           <div class="modal-actions">
             <button type="button" class="secondary-btn" id="cancelActivityBtn">Cancelar</button>
             <button type="submit" class="primary-btn">Salvar registro</button>
@@ -232,6 +261,57 @@
           </div>
         </form>
       </div>
+    </div>
+
+    <div id="userManagementModal" class="modal-backdrop hidden">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Gerenciar usuários</h3>
+          <button id="closeUserManagementBtn" class="icon-btn" aria-label="Fechar">✕</button>
+        </div>
+        <form id="userForm">
+          <div class="form-grid">
+            <label>Nome completo<input name="name" type="text" maxlength="120" required /></label>
+            <label>Usuário<input name="username" type="text" minlength="3" maxlength="40" autocomplete="off" required /></label>
+            <label>Senha inicial<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required /></label>
+            <label>Perfil
+              <select name="role" required>
+                <option value="operator">Inspetor / Operador</option>
+                <option value="technical">Responsável técnico</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </label>
+            <label class="user-access-field">Equipamentos autorizados
+              <select name="equipmentTags" id="userEquipmentAccess" multiple size="5"></select>
+            </label>
+          </div>
+          <p class="form-help">Perfis técnico e operador veem apenas equipamentos selecionados. A senha precisa ter pelo menos 8 caracteres. A conta é cadastrada pelo administrador autenticado.</p>
+          <div class="modal-actions">
+            <button type="submit" class="primary-btn">Criar usuário</button>
+          </div>
+        </form>
+        <div id="userList" class="user-list"></div>
+      </div>
+    </div>
+
+    <div id="reviewModal" class="modal-backdrop hidden">
+      <form id="reviewForm" class="modal review-modal">
+        <div class="modal-header">
+          <h3 id="reviewModalTitle">Revisar atividade</h3>
+          <button type="button" id="closeReviewModalBtn" class="icon-btn" aria-label="Fechar">✕</button>
+        </div>
+        <p id="reviewModalHint" class="form-help"></p>
+        <label id="reviewerNameField" for="reviewerName" class="hidden">Revisor (nome declarado, não autenticado)
+          <input id="reviewerName" name="reviewerName" type="text" maxlength="120" autocomplete="name" />
+        </label>
+        <label for="reviewComments">Comentário técnico
+          <textarea id="reviewComments" name="comments" rows="4" maxlength="2000" placeholder="Registre o parecer ou a justificativa"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" id="cancelReviewBtn">Cancelar</button>
+          <button type="submit" class="primary-btn">Registrar decisão</button>
+        </div>
+      </form>
     </div>
 
     <script src="app.js"></script>
