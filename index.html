@@ -16,31 +16,62 @@
           <p class="eyebrow">LNBio · Operações Laboratoriais</p>
           <h1>LabTrack LNBio</h1>
         </div>
+        <nav class="primary-nav" aria-label="Navegação principal">
+          <button type="button" class="secondary-btn small nav-btn" data-view="home">Início</button>
+          <button type="button" class="secondary-btn small nav-btn" data-view="dashboard">Painel</button>
+          <button type="button" class="secondary-btn small nav-btn" data-view="identify">Equipamentos</button>
+          <button type="button" class="secondary-btn small nav-btn" data-view="public">Consulta pública</button>
+        </nav>
         <div class="topbar-actions">
-          <label class="role-switch" for="roleSelect">
-            <span>Perfil</span>
-            <select id="roleSelect">
-              <option value="operador">Operador</option>
-              <option value="consulta">Consulta</option>
-              <option value="admin">Administrador</option>
-            </select>
-          </label>
+          <span class="prototype-notice">Protótipo local · sem autenticação</span>
         </div>
       </header>
 
-      <aside class="sidebar">
-        <div class="sidebar-header">
-          <h2>Equipamentos</h2>
-          <button id="newEquipmentBtn" class="primary-btn small">+ Novo</button>
-        </div>
-        <div class="search-box">
-          <input id="searchInput" type="search" placeholder="Buscar equipamento" aria-label="Buscar equipamento" />
-        </div>
-        <div id="equipmentList" class="equipment-list" aria-live="polite"></div>
-      </aside>
-
       <main class="main-panel">
-        <section id="dashboardView" class="view active">
+        <section id="homeView" class="view active">
+          <div class="landing-card">
+            <p class="eyebrow">Identificação do equipamento</p>
+            <h2>O que você precisa fazer?</h2>
+            <p class="landing-copy">Acesse o equipamento para registrar uma atividade ou consultar as informações e o histórico.</p>
+            <button type="button" id="identifyQrBtn" class="identify-qr-btn">
+              <span class="qr-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" focusable="false">
+                  <path d="M5 5h20v20H5zM9 9v12h12V9zM39 5h20v20H39zM43 9v12h12V9zM5 39h20v20H5zM9 43v12h12V43zM31 5h4v8h-4zM27 17h8v4h-8zM31 25h4v6h-4zM39 31h8v4h-8zM51 31h8v4h-8zM27 35h8v4h-8zM31 43h8v4h-8zM43 39h4v8h-4zM51 39h8v4h-8zM39 51h8v8h-8zM51 47h4v8h-4zM27 51h8v4h-8z"/>
+                </svg>
+              </span>
+              <span>Abrir identificação por QR Code ou TAG</span>
+              <span class="identify-arrow" aria-hidden="true">→</span>
+            </button>
+            <p class="landing-hint">Na próxima tela, selecione o equipamento ou informe a TAG.</p>
+          </div>
+        </section>
+
+        <section id="identifyView" class="view">
+          <div class="section-header identify-header">
+            <div>
+              <p class="eyebrow">Identificação do equipamento</p>
+              <h2>Selecione o equipamento ou informe a TAG</h2>
+            </div>
+            <button type="button" id="newEquipmentBtn" class="secondary-btn">+ Cadastrar equipamento</button>
+          </div>
+          <form id="identifyEquipmentForm" class="identify-form">
+            <label for="tagInput">TAG DO EQUIPAMENTO</label>
+            <div class="identify-input-row">
+              <input id="tagInput" name="tag" type="search" list="equipmentSuggestions" placeholder="Ex.: BAL-001" autocomplete="off" required />
+              <datalist id="equipmentSuggestions"></datalist>
+              <button type="submit" class="primary-btn">Acessar equipamento</button>
+            </div>
+          </form>
+          <p id="identifyMessage" class="form-message" role="status" aria-live="polite"></p>
+          <div class="equipment-choices">
+            <label for="equipmentSelect">Ou selecione na lista por categoria</label>
+            <select id="equipmentSelect">
+              <option value="">Escolher equipamento...</option>
+            </select>
+          </div>
+        </section>
+
+        <section id="dashboardView" class="view">
           <div class="section-header">
             <div>
               <p class="eyebrow">Dashboard</p>
@@ -57,38 +88,26 @@
         </section>
 
         <section id="equipmentView" class="view">
+          <button type="button" class="back-link nav-btn" data-view="identify">← Voltar à identificação</button>
           <div class="section-header detail-header">
             <div>
               <p class="eyebrow">Equipamento</p>
               <h2 id="equipmentName">Selecione um item</h2>
+              <p id="equipmentTagline" class="equipment-tagline"></p>
             </div>
-            <button id="activityBtn" class="primary-btn">Registrar atividade</button>
+            <div class="equipment-header-actions">
+              <button id="copyEquipmentLinkBtn" class="secondary-btn">Copiar link para QR físico</button>
+              <button id="activityBtn" class="primary-btn">Realizar verificação, manutenção ou limpeza</button>
+            </div>
           </div>
 
-          <div class="detail-layout">
-            <div class="detail-main">
-              <div class="panel tabs-panel">
-                <div class="tabs" role="tablist" aria-label="Detalhes do equipamento">
-                  <button class="tab-btn active" data-tab="records" role="tab" aria-selected="true">Registros</button>
-                  <button class="tab-btn" data-tab="public" role="tab" aria-selected="false">Status Público</button>
-                  <button class="tab-btn" data-tab="technical" role="tab" aria-selected="false">Dados do Equipamento</button>
-                  <button class="tab-btn" data-tab="qr" role="tab" aria-selected="false">QR Code</button>
-                </div>
-
-                <div id="tabContent" class="tab-content"></div>
-              </div>
+          <div class="panel tabs-panel">
+            <div class="tabs" role="tablist" aria-label="Informações do equipamento">
+              <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true">Visão geral</button>
+              <button class="tab-btn" data-tab="records" role="tab" aria-selected="false">Histórico</button>
+              <button class="tab-btn" data-tab="technical" role="tab" aria-selected="false">Dados do equipamento</button>
             </div>
-
-            <aside class="detail-side">
-              <div class="panel attribute-card">
-                <h3>Dados rápidos</h3>
-                <ul id="equipmentOverview" class="info-list"></ul>
-              </div>
-              <div class="panel attribute-card">
-                <h3>Próximas ações</h3>
-                <ul id="equipmentActions" class="action-list"></ul>
-              </div>
-            </aside>
+            <div id="tabContent" class="tab-content"></div>
           </div>
         </section>
 
@@ -114,22 +133,20 @@
         <form id="activityForm">
           <div class="form-grid">
             <label>
-              Tipo
+              Atividade
               <select id="activityType" name="type">
+                <option value="Verificação">Verificação</option>
+                <option value="Calibração diária">Calibração diária</option>
+                <option value="Manutenção">Manutenção</option>
                 <option value="Limpeza">Limpeza</option>
                 <option value="Inspeção">Inspeção</option>
-                <option value="Manutenção">Manutenção</option>
                 <option value="Observação">Observação</option>
                 <option value="Calibração">Calibração</option>
               </select>
             </label>
             <label>
-              Data
-              <input id="activityDate" name="date" type="date" required />
-            </label>
-            <label>
-              Responsável
-              <input id="activityResponsible" name="responsible" type="text" placeholder="Nome do responsável" required />
+              Usuário responsável
+              <input id="activityResponsible" name="responsible" type="text" placeholder="Informe seu nome" autocomplete="name" maxlength="120" required />
             </label>
             <label>
               Status
@@ -140,10 +157,17 @@
               </select>
             </label>
           </div>
+          <fieldset class="checklist-fieldset">
+            <legend>Checklist do que foi realizado</legend>
+            <p class="form-help">Descreva as ações executadas conforme o procedimento aprovado do equipamento. Nenhum critério técnico é predefinido pelo sistema.</p>
+            <div id="checklistItems" class="checklist-items"></div>
+            <button type="button" id="addChecklistItemBtn" class="secondary-btn small">+ Adicionar item</button>
+          </fieldset>
           <label>
-            Observações
-            <textarea id="activityNotes" name="notes" rows="4" placeholder="Descreva o registro executado"></textarea>
+            Observações e resultados
+            <textarea id="activityNotes" name="notes" rows="4" maxlength="2000" placeholder="Registre observações, resultados ou pendências"></textarea>
           </label>
+          <p class="form-help">A data e a hora serão registradas automaticamente ao salvar. O nome informado não substitui autenticação de usuário.</p>
           <div class="modal-actions">
             <button type="button" class="secondary-btn" id="cancelActivityBtn">Cancelar</button>
             <button type="submit" class="primary-btn">Salvar registro</button>
@@ -174,6 +198,13 @@
               <select id="newCategory" name="category">
                 <option value="Balança">Balança</option>
                 <option value="Centrífuga">Centrífuga</option>
+                <option value="pHmetro">pHmetro</option>
+                <option value="Agitador magnético">Agitador magnético</option>
+                <option value="Agitador vortex">Agitador vortex</option>
+                <option value="Autoclave">Autoclave</option>
+                <option value="Espectrofotômetro">Espectrofotômetro</option>
+                <option value="Incubadora">Incubadora</option>
+                <option value="Microscópio">Microscópio</option>
                 <option value="Freezer">Freezer</option>
                 <option value="Geladeira">Geladeira</option>
                 <option value="Moinho">Moinho</option>

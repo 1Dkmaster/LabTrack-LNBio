@@ -146,28 +146,78 @@ const defaultEquipment = [
   }
 ];
 
+const inventoryCatalog = [
+  { id: "LNB-BAL-001", name: "Balança Analítica AX223 - Ohaus", category: "Balança" },
+  { id: "LNB-BAL-002", name: "Balança Analítica Pioneer - Ohaus", category: "Balança" },
+  { id: "LNB-BAL-003", name: "Balança Analítica M214Ai - Bel", category: "Balança" },
+  { id: "LNB-EQP-001", name: "Centrífuga 5810R - Eppendorf", category: "Centrífuga" },
+  { id: "LNB-EQP-007", name: "Centrífuga MiniSpin C1008-P - Interprise", category: "Centrífuga" },
+  { id: "LNB-EQP-033", name: "Centrífuga de placas Platefuge C2000- Benchmark", category: "Centrífuga" },
+  { id: "LNB-EQP-053", name: "pHmetro Orion 720 - Thermo Scientific", category: "pHmetro" },
+  { id: "LNB-EQP-067", name: "pHmetro Accumet AB15 - FisherBrand", category: "pHmetro" },
+  { id: "LNB-EQP-147", name: "pHmetro Orion 420A+ - Thermo Scientific", category: "pHmetro" },
+  { id: "LNB-VOX-001", name: "Agitador Vortex Standard - VWR", category: "Agitador vortex" },
+  { id: "LNB-EQP-013", name: "Agitador magnético com aquecimento Isotemp - FisherBrand", category: "Agitador magnético" },
+  { id: "LNB-AUT-001", name: "Autoclave vertical AV Plus - Phoenix Luferco", category: "Autoclave" },
+  { id: "LNB-FRZ-001", name: "Freezer MDF-U333 - Sanyo", category: "Freezer" },
+  { id: "LNB-MIC-001", name: "Microscópio Evos M5000 - Thermo Scientific", category: "Microscópio" },
+  { id: "LNB-ESP-001", name: "Espectrofotômetro V-730 - Jasco", category: "Espectrofotômetro" },
+  { id: "LNB-INC-001", name: "Incubadora CO2 3111 - Thermo Scientific", category: "Incubadora" },
+  { id: "LNB-BOV-001", name: "Bomba de vácuo Diapump - Fanem", category: "Bomba de vácuo" },
+  { id: "LNB-CSB-001", name: "Cabine de segurança biológica Biosafe A1 - Veco", category: "Cabine de segurança biológica" }
+];
+
+function createInventoryEquipment(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    location: "Não informada na planilha",
+    manufacturer: "Não informado separadamente na planilha",
+    assetNumber: "Não informado",
+    serial: "Não informado",
+    acquisitionYear: "Não informado",
+    status: "Não verificado",
+    responsible: "Não informado",
+    publicUrl: "",
+    qrCode: `QR-${item.id}`,
+    lastCleaning: "",
+    lastInspection: "",
+    lastCalibration: "",
+    nextCalibration: "",
+    inventorySource: "Inventario_Tags_LNBIO_V3.xlsx",
+    technical: {
+      modelo: "Consultar nome/modelo do inventário",
+      documentacao: "Não cadastrada"
+    },
+    activities: []
+  };
+}
+
 let state = {
-  role: "operador",
   equipment: loadEquipment(),
   selectedId: null,
-  currentTab: "records",
-  search: ""
+  currentTab: "overview",
 };
 
 const els = {
-  roleSelect: document.querySelector("#roleSelect"),
-  equipmentList: document.querySelector("#equipmentList"),
+  equipmentSelect: document.querySelector("#equipmentSelect"),
+  equipmentSuggestions: document.querySelector("#equipmentSuggestions"),
+  identifyEquipmentForm: document.querySelector("#identifyEquipmentForm"),
+  tagInput: document.querySelector("#tagInput"),
+  identifyMessage: document.querySelector("#identifyMessage"),
   dashboardMetrics: document.querySelector("#dashboardMetrics"),
   alertList: document.querySelector("#alertList"),
-  searchInput: document.querySelector("#searchInput"),
   equipmentName: document.querySelector("#equipmentName"),
+  equipmentTagline: document.querySelector("#equipmentTagline"),
   tabContent: document.querySelector("#tabContent"),
-  equipmentOverview: document.querySelector("#equipmentOverview"),
-  equipmentActions: document.querySelector("#equipmentActions"),
   publicStatusCard: document.querySelector("#publicStatusCard"),
   activityBtn: document.querySelector("#activityBtn"),
+  copyEquipmentLinkBtn: document.querySelector("#copyEquipmentLinkBtn"),
   modalBackdrop: document.querySelector("#modalBackdrop"),
   activityForm: document.querySelector("#activityForm"),
+  checklistItems: document.querySelector("#checklistItems"),
+  addChecklistItemBtn: document.querySelector("#addChecklistItemBtn"),
   modalTitle: document.querySelector("#modalTitle"),
   cancelActivityBtn: document.querySelector("#cancelActivityBtn"),
   closeModalBtn: document.querySelector("#closeModalBtn"),
@@ -182,69 +232,109 @@ const els = {
 };
 
 const tabButtons = [...document.querySelectorAll(".tab-btn")];
+const navButtons = [...document.querySelectorAll(".nav-btn")];
 
 function loadEquipment() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultEquipment));
-    return defaultEquipment;
-  }
-
   try {
-    const parsed = JSON.parse(saved);
-    return parsed.length ? parsed : defaultEquipment;
-  } catch {
-    return defaultEquipment;
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const parsed = saved ? JSON.parse(saved) : defaultEquipment;
+    const equipment = Array.isArray(parsed) && parsed.length ? parsed : [...defaultEquipment];
+    const existingIds = new Set(equipment.map(item => item.id));
+    const newInventoryItems = inventoryCatalog
+      .filter(item => !existingIds.has(item.id))
+      .map(createInventoryEquipment);
+
+    if (!saved || newInventoryItems.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...equipment, ...newInventoryItems]));
+    }
+
+    return [...equipment, ...newInventoryItems];
+  } catch (error) {
+    console.error("Não foi possível carregar ou atualizar o inventário salvo neste navegador.", error);
+    window.alert("Não foi possível atualizar o inventário salvo. Confira as permissões e o espaço disponível neste navegador.");
+    return [...defaultEquipment, ...inventoryCatalog.map(createInventoryEquipment)];
   }
 }
 
 function saveEquipment() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.equipment));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.equipment));
+    return true;
+  } catch (error) {
+    console.error("Não foi possível salvar os dados do LabTrack neste navegador.", error);
+    window.alert("Não foi possível salvar os dados neste navegador. Verifique o espaço disponível e tente novamente.");
+    return false;
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[character]);
 }
 
 function statusClass(status) {
   if (status === "Operacional") return "success";
   if (status === "Atenção") return "warning";
+  if (status === "Não verificado") return "neutral";
   return "danger";
 }
 
 function getSelectedEquipment() {
-  return state.equipment.find(item => item.id === state.selectedId) || state.equipment[0];
+  return state.equipment.find(item => item.id === state.selectedId) || null;
 }
 
-function getFilteredEquipment() {
-  const query = state.search.trim().toLowerCase();
-  return state.equipment.filter(item => {
-    if (!query) return true;
-    return `${item.name} ${item.category} ${item.location} ${item.id}`.toLowerCase().includes(query);
-  });
+function renderIdentification() {
+  els.equipmentSuggestions.innerHTML = state.equipment
+    .map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`)
+    .join("");
+  const categories = [...new Set(state.equipment.map(item => item.category))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  els.equipmentSelect.innerHTML = `
+    <option value="">Escolher equipamento...</option>
+    ${categories.map(category => `
+      <optgroup label="${escapeHtml(category)}">
+        ${state.equipment.filter(item => item.category === category).map(item => `
+          <option value="${escapeHtml(item.id)}">${escapeHtml(item.id)} · ${escapeHtml(item.name)}</option>
+        `).join("")}
+      </optgroup>
+    `).join("")}
+  `;
 }
 
 function renderDashboard() {
   const total = state.equipment.length;
   const conforming = state.equipment.filter(item => item.status === "Operacional").length;
+  const unverified = state.equipment.filter(item => item.status === "Não verificado").length;
+  const daysSince = value => {
+    if (!value) return null;
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return null;
+    return (new Date() - date) / (1000 * 60 * 60 * 24);
+  };
   const pendingCleaning = state.equipment.filter(item => {
-    const lastCleaning = new Date(item.lastCleaning || "2020-01-01");
-    const now = new Date();
-    const diff = (now - lastCleaning) / (1000 * 60 * 60 * 24);
-    return diff > 30;
+    const days = daysSince(item.lastCleaning);
+    return days !== null && days > 30;
   }).length;
   const pendingInspection = state.equipment.filter(item => {
-    const lastInspection = new Date(item.lastInspection || "2020-01-01");
-    const now = new Date();
-    const diff = (now - lastInspection) / (1000 * 60 * 60 * 24);
-    return diff > 45;
+    const days = daysSince(item.lastInspection);
+    return days !== null && days > 45;
   }).length;
   const calibrationSoon = state.equipment.filter(item => {
-    const nextCalibration = new Date(item.nextCalibration || "2020-01-01");
-    const now = new Date();
-    const diff = (nextCalibration - now) / (1000 * 60 * 60 * 24);
+    if (!item.nextCalibration) return false;
+    const nextCalibration = new Date(`${item.nextCalibration}T00:00:00`);
+    if (Number.isNaN(nextCalibration.getTime())) return false;
+    const diff = (nextCalibration - new Date()) / (1000 * 60 * 60 * 24);
     return diff > 0 && diff <= 45;
   }).length;
 
   const metrics = [
-    { label: "Equipamentos cadastrados", value: total, trend: "Base atual" },
-    { label: "Em conformidade", value: conforming, trend: `${Math.round((conforming / Math.max(total, 1)) * 100)}% do total` },
+    { label: "Equipamentos cadastrados", value: total, trend: "Base do inventário" },
+    { label: "Status operacional", value: conforming, trend: "Registros classificados como operacional" },
+    { label: "Sem verificação", value: unverified, trend: "Sem status técnico confirmado" },
     { label: "Pendentes de limpeza", value: pendingCleaning, trend: "> 30 dias" },
     { label: "Pendentes de inspeção", value: pendingInspection, trend: "> 45 dias" },
     { label: "Calibração próxima", value: calibrationSoon, trend: "próximos 45 dias" }
@@ -281,62 +371,61 @@ function renderDashboard() {
   `).join("");
 }
 
-function renderEquipmentList() {
-  const filtered = getFilteredEquipment();
-  if (!filtered.length) {
-    els.equipmentList.innerHTML = '<div class="empty-state">Nenhum equipamento encontrado.</div>';
-    return;
-  }
-
-  els.equipmentList.innerHTML = filtered.map(item => {
-    const selected = item.id === state.selectedId ? "active" : "";
-    return `
-      <button class="equipment-item ${selected}" data-id="${item.id}">
-        <strong>${item.name}</strong>
-        <div class="item-meta">
-          <span>${item.id}</span>
-          <span class="badge ${statusClass(item.status)}">${item.status}</span>
-        </div>
-        <div class="item-meta">
-          <span>${item.category}</span>
-          <span>${item.location}</span>
-        </div>
-      </button>
-    `;
-  }).join("");
-
-  document.querySelectorAll(".equipment-item").forEach(button => {
-    button.addEventListener("click", event => {
-      state.selectedId = event.currentTarget.dataset.id;
-      state.currentTab = "records";
-      render();
-    });
-  });
-}
-
 function renderTabContent(selected) {
   if (!selected) {
     els.tabContent.innerHTML = '<div class="empty-state">Selecione um equipamento.</div>';
     return;
   }
 
+  if (state.currentTab === "overview") {
+    els.tabContent.innerHTML = `
+      <div class="equipment-overview-grid">
+        <article class="overview-item"><span>TAG</span><strong>${escapeHtml(selected.id)}</strong></article>
+        <article class="overview-item"><span>Categoria</span><strong>${escapeHtml(selected.category)}</strong></article>
+        <article class="overview-item"><span>Localização</span><strong>${escapeHtml(selected.location || "Não informada")}</strong></article>
+        <article class="overview-item"><span>Situação registrada</span><strong>${escapeHtml(selected.status || "Não verificado")}</strong></article>
+      </div>
+      ${selected.inventorySource ? `<p class="source-note">Identificação importada da planilha de inventário. Localização, status e histórico ainda precisam ser confirmados.</p>` : ""}
+      <button type="button" class="primary-btn overview-action" id="startEquipmentActivityBtn">Registrar uma atividade</button>
+    `;
+    els.tabContent.querySelector("#startEquipmentActivityBtn").addEventListener("click", openModal);
+    return;
+  }
+
   if (state.currentTab === "records") {
-    const records = [...selected.activities].sort((a, b) => new Date(b.date) - new Date(a.date));
-    els.tabContent.innerHTML = records.length ? `
+    const records = [...(selected.activities || [])].sort((a, b) =>
+      new Date(getRecordTimestamp(b)) - new Date(getRecordTimestamp(a))
+    );
+    els.tabContent.innerHTML = `
+      <div class="history-toolbar">
+        <p>Relatórios e exportação referentes a <strong>${escapeHtml(selected.id)}</strong>.</p>
+        <button type="button" class="secondary-btn small" id="exportEquipmentCsvBtn">Exportar planilha CSV</button>
+      </div>
+      ${records.length ? `
       <div class="record-list">
         ${records.map(record => `
           <article class="record-item">
-            <div class="record-date">${formatDate(record.date)}</div>
+            <div class="record-date">${escapeHtml(formatRecordDateTime(record))}</div>
             <div class="record-body">
-              <strong>${record.type}</strong>
-              <span>Responsável: ${record.responsible}</span>
-              <p>${record.notes || "Nenhuma observação detalhada."}</p>
+              <strong>${escapeHtml(record.type)}</strong>
+              <span>Realizado por: ${escapeHtml(record.responsible)}</span>
+              <span>Situação registrada: ${escapeHtml(record.status || selected.status || "—")}</span>
+              ${record.checklist?.length ? `<ul class="record-checklist">${record.checklist.map(item => `
+                <li>${escapeHtml(item.description)} — ${escapeHtml(item.result)}</li>
+              `).join("")}</ul>` : ""}
+              <p>${escapeHtml(record.notes || "Sem observações adicionais.")}</p>
+              <button type="button" class="secondary-btn small report-btn" data-record-id="${escapeHtml(record.id)}">Abrir relatório</button>
             </div>
-            <span class="badge ${statusClass(record.status || selected.status)}">${record.status || selected.status}</span>
+            <span class="badge ${statusClass(record.status || selected.status)}">${escapeHtml(record.status || selected.status || "—")}</span>
           </article>
         `).join("")}
       </div>
-    ` : '<div class="empty-state">Ainda não há registros para este equipamento.</div>';
+      ` : '<div class="empty-state">Ainda não há atividades registradas para este equipamento.</div>'}
+    `;
+    els.tabContent.querySelector("#exportEquipmentCsvBtn")?.addEventListener("click", exportEquipmentCsv);
+    els.tabContent.querySelectorAll(".report-btn").forEach(button => {
+      button.addEventListener("click", () => openActivityReport(selected, button.dataset.recordId));
+    });
     return;
   }
 
@@ -346,15 +435,15 @@ function renderTabContent(selected) {
         <div class="public-header">
           <div>
             <p class="eyebrow">Status público</p>
-            <h3>${selected.name}</h3>
+            <h3>${escapeHtml(selected.name)}</h3>
           </div>
-          <span class="badge ${statusClass(selected.status)}">${selected.status}</span>
+          <span class="badge ${statusClass(selected.status)}">${escapeHtml(selected.status)}</span>
         </div>
         <div class="public-meta">
           <div class="meta-box"><span>Última limpeza</span><strong>${formatDate(selected.lastCleaning)}</strong></div>
           <div class="meta-box"><span>Última verificação</span><strong>${formatDate(selected.lastInspection)}</strong></div>
           <div class="meta-box"><span>Próxima calibração</span><strong>${formatDate(selected.nextCalibration)}</strong></div>
-          <div class="meta-box"><span>Responsável</span><strong>${selected.responsible}</strong></div>
+          <div class="meta-box"><span>Responsável</span><strong>${escapeHtml(selected.responsible)}</strong></div>
         </div>
       </div>
     `;
@@ -363,51 +452,32 @@ function renderTabContent(selected) {
   }
 
   if (state.currentTab === "technical") {
-    const entries = Object.entries(selected.technical || {});
+    const entries = [
+      ["Fabricante", selected.manufacturer],
+      ["Modelo / identificação", selected.technical?.modelo || "Não informado"],
+      ["Número de série", selected.serial],
+      ["Número patrimonial", selected.assetNumber],
+      ["Ano de aquisição", selected.acquisitionYear],
+      ["Localização", selected.location],
+      ["Última calibração", formatDate(selected.lastCalibration)],
+      ["Próxima calibração", formatDate(selected.nextCalibration)],
+      ...Object.entries(selected.technical || {}).filter(([key]) => key !== "modelo")
+    ];
+    const uniqueEntries = [...new Map(entries).entries()];
     els.tabContent.innerHTML = `
-      <div class="record-list">
-        ${entries.map(([key, value]) => `
-          <div class="record-item">
-            <div class="record-date">${key}</div>
-            <div class="record-body">
-              <strong>${value}</strong>
-            </div>
-            <span class="badge success">Detalhe</span>
+      <div class="technical-grid">
+        ${uniqueEntries.map(([key, value]) => `
+          <div class="technical-item">
+            <span>${escapeHtml(key)}</span>
+            <strong>${escapeHtml(value || "Não informado")}</strong>
           </div>
         `).join("")}
       </div>
+      ${selected.inventorySource ? `<p class="source-note">Fonte da identificação: ${escapeHtml(selected.inventorySource)}. A planilha não fornece os demais campos acima.</p>` : ""}
     `;
     return;
   }
 
-  if (state.currentTab === "qr") {
-    els.tabContent.innerHTML = `
-      <div class="qr-box">
-        <div class="qr-sample" aria-label="QR code do equipamento"></div>
-        <div class="qr-code-label">${selected.qrCode}</div>
-        <div>${selected.publicUrl}</div>
-      </div>
-    `;
-  }
-}
-
-function renderEquipmentOverview(selected) {
-  els.equipmentOverview.innerHTML = `
-    <li><span>Categoria</span><strong>${selected.category}</strong></li>
-    <li><span>Local</span><strong>${selected.location}</strong></li>
-    <li><span>Fabricante</span><strong>${selected.manufacturer}</strong></li>
-    <li><span>Nº Patrimonial</span><strong>${selected.assetNumber}</strong></li>
-    <li><span>Nº Série</span><strong>${selected.serial}</strong></li>
-    <li><span>Aquisição</span><strong>${selected.acquisitionYear}</strong></li>
-    <li><span>Status</span><strong>${selected.status}</strong></li>
-  `;
-
-  els.equipmentActions.innerHTML = `
-    <li><span>Última limpeza</span><strong>${formatDate(selected.lastCleaning)}</strong></li>
-    <li><span>Última inspeção</span><strong>${formatDate(selected.lastInspection)}</strong></li>
-    <li><span>Próxima calibração</span><strong>${formatDate(selected.nextCalibration)}</strong></li>
-    <li><span>Responsável</span><strong>${selected.responsible}</strong></li>
-  `;
 }
 
 function renderPublicStatus() {
@@ -421,15 +491,15 @@ function renderPublicStatus() {
     <div class="public-header">
       <div>
         <p class="eyebrow">Consulta pública</p>
-        <h3>${selected.name}</h3>
+        <h3>${escapeHtml(selected.name)}</h3>
       </div>
-      <span class="badge ${statusClass(selected.status)}">${selected.status}</span>
+      <span class="badge ${statusClass(selected.status)}">${escapeHtml(selected.status)}</span>
     </div>
     <div class="public-meta">
       <div class="meta-box"><span>Última limpeza</span><strong>${formatDate(selected.lastCleaning)}</strong></div>
       <div class="meta-box"><span>Última verificação</span><strong>${formatDate(selected.lastInspection)}</strong></div>
       <div class="meta-box"><span>Próxima calibração</span><strong>${formatDate(selected.nextCalibration)}</strong></div>
-      <div class="meta-box"><span>Responsável</span><strong>${selected.responsible}</strong></div>
+      <div class="meta-box"><span>Responsável</span><strong>${escapeHtml(selected.responsible)}</strong></div>
     </div>
   `;
 }
@@ -438,27 +508,110 @@ function renderSelectedEquipment() {
   const selected = getSelectedEquipment();
   if (!selected) {
     els.equipmentName.textContent = "Selecione um item";
+    els.equipmentTagline.textContent = "";
+    renderTabContent(null);
+    renderPublicStatus();
     return;
   }
 
   els.equipmentName.textContent = selected.name;
+  els.equipmentTagline.textContent = `${selected.id} · ${selected.category} · ${selected.location || "Local não informado"}`;
   renderTabContent(selected);
-  renderEquipmentOverview(selected);
   renderPublicStatus();
 }
 
 function render() {
   renderDashboard();
-  renderEquipmentList();
+  renderIdentification();
   renderSelectedEquipment();
-  updateRoleVisibility();
   syncTabs();
 }
 
-function updateRoleVisibility() {
-  const isConsulta = state.role === "consulta";
-  els.activityBtn.style.display = isConsulta ? "none" : "inline-flex";
-  els.newEquipmentBtn.style.display = isConsulta ? "none" : "inline-flex";
+function escapeCsv(value) {
+  let text = String(value ?? "");
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function exportEquipmentCsv() {
+  const selected = getSelectedEquipment();
+  if (!selected) return;
+  const rows = [["TAG", "Equipamento", "Data e hora", "Atividade", "Responsável informado", "Situação", "Item do checklist", "Resultado", "Observações"]];
+  for (const record of selected.activities || []) {
+    const checklist = record.checklist?.length ? record.checklist : [{ description: "", result: "" }];
+    for (const item of checklist) {
+      rows.push([
+        selected.id,
+        selected.name,
+        formatRecordDateTime(record),
+        record.type,
+        record.responsible,
+        record.status,
+        item.description,
+        item.result,
+        record.notes
+      ]);
+    }
+  }
+  const csv = `\uFEFF${rows.map(row => row.map(escapeCsv).join(";")).join("\r\n")}`;
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `labtrack-${selected.id}-historico.csv`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function openActivityReport(equipment, recordId) {
+  const record = (equipment.activities || []).find(item => item.id === recordId);
+  if (!record) {
+    window.alert("Não foi possível localizar este registro para gerar o relatório.");
+    return;
+  }
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) {
+    window.alert("O navegador bloqueou a janela do relatório. Permita pop-ups para gerar ou imprimir o relatório.");
+    return;
+  }
+
+  const checklistRows = record.checklist?.length ? record.checklist.map(item => `
+    <tr><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.result)}</td></tr>
+  `).join("") : '<tr><td colspan="2">Nenhum item de checklist registrado.</td></tr>';
+  reportWindow.document.write(`<!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Relatório ${escapeHtml(equipment.id)} · LabTrack</title>
+        <style>
+          body{font:16px Arial,sans-serif;max-width:850px;margin:32px auto;padding:0 20px;color:#1b2430}
+          h1{font-size:24px}h2{font-size:18px;margin-top:28px}
+          table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border:1px solid #dfe8f8}
+          th{background:#eef4ff}.meta{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+          .meta p{margin:4px 0}.notice{margin-top:32px;padding:12px;background:#fff7e8;border:1px solid #e8c879}
+          .print-button{padding:10px 18px;background:#184f9a;color:#fff;border:0;border-radius:8px;cursor:pointer}
+          @media print{body{margin:0}.print-button{display:none}}
+        </style>
+      </head>
+      <body>
+        <button class="print-button" onclick="window.print()">Imprimir / salvar como PDF</button>
+        <h1>Relatório de atividade · LabTrack LNBio</h1>
+        <div class="meta">
+          <p><strong>Equipamento:</strong> ${escapeHtml(equipment.name)}</p>
+          <p><strong>TAG:</strong> ${escapeHtml(equipment.id)}</p>
+          <p><strong>Atividade:</strong> ${escapeHtml(record.type)}</p>
+          <p><strong>Data e hora:</strong> ${escapeHtml(formatRecordDateTime(record))}</p>
+          <p><strong>Responsável informado:</strong> ${escapeHtml(record.responsible)}</p>
+          <p><strong>Situação registrada:</strong> ${escapeHtml(record.status || "—")}</p>
+        </div>
+        <h2>Checklist do que foi realizado</h2>
+        <table><thead><tr><th>Ação registrada</th><th>Resultado</th></tr></thead><tbody>${checklistRows}</tbody></table>
+        <h2>Observações e resultados</h2>
+        <p>${escapeHtml(record.notes || "Sem observações adicionais.")}</p>
+        <p class="notice">Relatório gerado pelo protótipo LabTrack. O nome do responsável é informado no formulário e não constitui autenticação ou assinatura. Este documento não representa aprovação técnica.</p>
+      </body>
+    </html>`);
+  reportWindow.document.close();
 }
 
 function syncTabs() {
@@ -475,15 +628,55 @@ function formatDate(dateString) {
   return new Intl.DateTimeFormat("pt-BR").format(date);
 }
 
+function formatDateTime(dateString) {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "Data não informada";
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(date);
+}
+
+function getRecordTimestamp(record) {
+  return record.createdAt || record.date || "";
+}
+
+function formatRecordDateTime(record) {
+  if (record.createdAt) return formatDateTime(record.createdAt);
+  if (record.date) return `${formatDate(record.date)} · horário não registrado`;
+  return "Data e horário não registrados";
+}
+
 function showView(viewName) {
+  document.body.dataset.view = viewName;
   document.querySelectorAll(".view").forEach(view => view.classList.toggle("active", view.id === `${viewName}View`));
+  navButtons.forEach(button => {
+    button.classList.toggle("active", button.dataset.view === viewName);
+    button.setAttribute("aria-current", button.dataset.view === viewName ? "page" : "false");
+  });
+}
+
+function selectEquipment(id) {
+  const selected = state.equipment.find(item => item.id.toLowerCase() === id.trim().toLowerCase());
+  if (!selected) {
+    els.identifyMessage.textContent = `Não encontramos a TAG "${id.trim()}". Confira o código ou selecione um equipamento da lista.`;
+    els.tagInput.focus();
+    return;
+  }
+  state.selectedId = selected.id;
+  state.currentTab = "overview";
+  els.equipmentSelect.value = selected.id;
+  els.identifyMessage.textContent = "";
+  showView("equipment");
+  render();
 }
 
 function openModal() {
   const selected = getSelectedEquipment();
   if (!selected) return;
-  const today = new Date().toISOString().split("T")[0];
-  document.querySelector("#activityDate").value = today;
+  els.activityForm.reset();
+  els.checklistItems.replaceChildren();
+  addChecklistItem();
   els.modalTitle.textContent = `Registrar atividade · ${selected.name}`;
   els.modalBackdrop.classList.remove("hidden");
 }
@@ -508,38 +701,93 @@ function addRecord(event) {
   if (!selected) return;
 
   const formData = new FormData(els.activityForm);
+  const checklist = [...els.checklistItems.querySelectorAll(".checklist-row")].map(row => ({
+    description: row.querySelector('[name="checklistDescription"]').value.trim(),
+    result: row.querySelector('[name="checklistResult"]').value
+  }));
+  if (!checklist.length || checklist.some(item => !item.description)) {
+    window.alert("Preencha a descrição de cada item do checklist ou remova os itens vazios.");
+    return;
+  }
+  const now = new Date();
+  const createdAt = now.toISOString();
+  const localDate = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0")
+  ].join("-");
   const record = {
     id: crypto.randomUUID(),
-    date: formData.get("date"),
+    date: localDate,
+    createdAt,
     type: formData.get("type"),
-    responsible: formData.get("responsible"),
+    responsible: formData.get("responsible").toString().trim(),
     status: formData.get("status"),
-    notes: formData.get("notes") || "Nenhuma observação.",
+    checklist,
+    notes: formData.get("notes").toString().trim()
   };
 
+  const previousStatus = selected.status;
+  const previousCleaning = selected.lastCleaning;
+  const previousInspection = selected.lastInspection;
+  const previousCalibration = selected.lastCalibration;
   selected.activities.push(record);
-  selected.lastCleaning = selected.lastCleaning || record.date;
-  selected.lastInspection = selected.lastInspection || record.date;
   selected.status = record.status;
 
   if (record.type === "Limpeza") selected.lastCleaning = record.date;
-  if (record.type === "Inspeção" || record.type === "Observação") selected.lastInspection = record.date;
-  if (record.type === "Calibração") selected.lastCalibration = record.date;
+  if (record.type === "Inspeção" || record.type === "Verificação" || record.type === "Observação") {
+    selected.lastInspection = record.date;
+  }
+  if (record.type === "Calibração" || record.type === "Calibração diária") selected.lastCalibration = record.date;
 
-  saveEquipment();
+  if (!saveEquipment()) {
+    selected.activities.pop();
+    selected.status = previousStatus;
+    selected.lastCleaning = previousCleaning;
+    selected.lastInspection = previousInspection;
+    selected.lastCalibration = previousCalibration;
+    return;
+  }
+  state.currentTab = "records";
   closeModal();
   render();
+}
+
+function addChecklistItem() {
+  const row = document.createElement("div");
+  row.className = "checklist-row";
+  row.innerHTML = `
+    <label>
+      Ação executada
+      <input name="checklistDescription" type="text" maxlength="240" placeholder="Descreva o que foi feito" required />
+    </label>
+    <label>
+      Resultado
+      <select name="checklistResult">
+        <option value="Realizado">Realizado</option>
+        <option value="Não realizado">Não realizado</option>
+        <option value="Não se aplica">Não se aplica</option>
+      </select>
+    </label>
+    <button type="button" class="icon-btn remove-checklist-btn" aria-label="Remover item do checklist">×</button>
+  `;
+  row.querySelector(".remove-checklist-btn").addEventListener("click", () => row.remove());
+  els.checklistItems.append(row);
 }
 
 function addEquipment(event) {
   event.preventDefault();
   const formData = new FormData(els.equipmentForm);
-  const code = formData.get("code").toString().trim();
+  const code = formData.get("code").toString().trim().toUpperCase();
   const name = formData.get("name").toString().trim();
   const category = formData.get("category").toString().trim();
   const location = formData.get("location").toString().trim();
-  const manufacturer = formData.get("manufacturer").toString().trim() || "A definir";
-  const assetNumber = formData.get("asset").toString().trim() || "A definir";
+  const manufacturer = formData.get("manufacturer").toString().trim() || "Não informado";
+  const assetNumber = formData.get("asset").toString().trim() || "Não informado";
+  if (state.equipment.some(item => item.id.toLowerCase() === code.toLowerCase())) {
+    window.alert(`A TAG "${code}" já está cadastrada.`);
+    return;
+  }
 
   const newItem = {
     id: code,
@@ -548,53 +796,49 @@ function addEquipment(event) {
     location,
     manufacturer,
     assetNumber,
-    serial: `${code}-SN`,
-    acquisitionYear: new Date().getFullYear(),
-    status: "Operacional",
-    responsible: "Equipe Operações",
-    publicUrl: `https://labtrack.lnbio/equipamento/${code}`,
+    serial: "Não informado",
+    acquisitionYear: "Não informado",
+    status: "Não verificado",
+    responsible: "Não informado",
+    publicUrl: "",
     qrCode: `QR-${code}`,
-    lastCleaning: new Date().toISOString().split("T")[0],
-    lastInspection: new Date().toISOString().split("T")[0],
-    lastCalibration: new Date().toISOString().split("T")[0],
-    nextCalibration: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    lastCleaning: "",
+    lastInspection: "",
+    lastCalibration: "",
+    nextCalibration: "",
     technical: {
-      modelo: "A definir",
-      capacidade: "A definir",
-      resolucao: "A definir",
-      peso: "A definir",
+      modelo: "Não informado",
       localizacao: location,
-      manual: "Abrir",
-      pop: "Abrir"
+      documentacao: "Não cadastrada"
     },
-    activities: [{
-      id: crypto.randomUUID(),
-      date: new Date().toISOString().split("T")[0],
-      type: "Inspeção",
-      responsible: "Equipe Operações",
-      status: "Operacional",
-      notes: "Equipamento cadastrado no sistema de rastreabilidade."
-    }]
+    activities: []
   };
 
   state.equipment.unshift(newItem);
   state.selectedId = newItem.id;
-  saveEquipment();
+  if (!saveEquipment()) {
+    state.equipment.shift();
+    return;
+  }
   closeEquipmentModal();
   render();
+  showView("equipment");
 }
 
-els.roleSelect.addEventListener("change", event => {
-  state.role = event.target.value;
-  render();
-});
-
-els.searchInput.addEventListener("input", event => {
-  state.search = event.target.value;
-  renderEquipmentList();
-});
-
 els.activityBtn.addEventListener("click", openModal);
+els.copyEquipmentLinkBtn.addEventListener("click", async () => {
+  const selected = getSelectedEquipment();
+  if (!selected) return;
+  const link = new URL(window.location.href);
+  link.searchParams.set("tag", selected.id);
+  try {
+    await navigator.clipboard.writeText(link.toString());
+    window.alert("Link de identificação copiado. Associe-o ao QR físico para abrir este equipamento.");
+  } catch (error) {
+    console.error("Não foi possível copiar o link de identificação.", error);
+    window.alert(`Não foi possível copiar automaticamente. Link para o QR: ${link.toString()}`);
+  }
+});
 els.cancelActivityBtn.addEventListener("click", closeModal);
 els.closeModalBtn.addEventListener("click", closeModal);
 els.modalBackdrop.addEventListener("click", event => {
@@ -616,35 +860,32 @@ els.newEquipmentModal.addEventListener("click", event => {
   if (event.target === els.newEquipmentModal) closeEquipmentModal();
 });
 els.equipmentForm.addEventListener("submit", addEquipment);
+els.addChecklistItemBtn.addEventListener("click", addChecklistItem);
+els.identifyEquipmentForm.addEventListener("submit", event => {
+  event.preventDefault();
+  selectEquipment(els.tagInput.value);
+});
+els.equipmentSelect.addEventListener("change", event => {
+  if (event.target.value) selectEquipment(event.target.value);
+});
+document.querySelector("#identifyQrBtn").addEventListener("click", () => {
+  els.identifyMessage.textContent = "";
+  els.tagInput.value = "";
+  showView("identify");
+  els.tagInput.focus();
+});
+navButtons.forEach(button => button.addEventListener("click", () => showView(button.dataset.view)));
 
 document.addEventListener("DOMContentLoaded", () => {
-  state.selectedId = state.equipment[0]?.id || null;
-  showView("dashboard");
   render();
+  const tag = new URLSearchParams(window.location.search).get("tag");
+  if (tag) {
+    els.tagInput.value = tag;
+    selectEquipment(tag);
+  } else {
+    showView("home");
+  }
 });
-
-const navButtons = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "equipment", label: "Equipamentos" },
-  { id: "public", label: "Consulta" }
-];
-
-navButtons.forEach(({ id }) => {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = id === "dashboard" ? "Dashboard" : id === "equipment" ? "Equipamentos" : "Consulta pública";
-  button.className = "secondary-btn small";
-  button.style.marginRight = "8px";
-  button.addEventListener("click", () => {
-    if (id === "dashboard") showView("dashboard");
-    if (id === "equipment") showView("equipment");
-    if (id === "public") showView("public");
-  });
-  const topbar = document.querySelector(".topbar");
-  topbar.appendChild(button);
-});
-
-showView("dashboard");
 
 window.addEventListener("keydown", event => {
   if (event.key === "Escape") {
