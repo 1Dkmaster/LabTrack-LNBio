@@ -36,7 +36,17 @@ Remove-Item Env:LABTRACK_AUTH_ENABLED -ErrorAction SilentlyContinue
 python server.py
 ```
 
-Na primeira execução sem administrador, use o formulário **Criar administrador** na própria página. A configuração inicial só pode ser feita localmente e apenas uma vez. Também é possível criar a conta no terminal com `python server.py create-admin`. Administradores gerenciam contas e permissões por TAG; responsáveis técnicos revisam atividades; operadores registram atividades nos equipamentos atribuídos. Senhas são armazenadas com PBKDF2-HMAC-SHA256 e salt individual, e as sessões usam cookies `HttpOnly` e `SameSite=Strict`.
+Na primeira execução sem administrador, use o formulário **Criar administrador** na própria página. A configuração inicial só pode ser feita localmente e apenas uma vez. Também é possível criar a conta no terminal com `python server.py create-admin`. Senhas são armazenadas com PBKDF2-HMAC-SHA256 e salt individual, e as sessões usam cookies `HttpOnly` e `SameSite=Strict`.
+
+### Níveis de acesso
+
+- **Administrador Máximo:** gerencia usuários, atribui qualquer perfil, redefine senhas, ativa/desativa contas, configura permissões por TAG, cadastra/edita equipamentos, consulta auditoria, edita atividades por versões auditadas e aprova, reprova ou solicita correções.
+- **Operador/Técnico:** consulta equipamentos autorizados, registra atividades e envia correções solicitadas. Não gerencia contas, altera equipamentos nem aprova/reprova atividades.
+- **Espectador:** consulta equipamentos e históricos autorizados, sem operações de escrita.
+
+A aba **Acesso**, visível somente ao Administrador Máximo autenticado, permite cadastrar usuários e editar nome, usuário, perfil, senha e equipamentos autorizados, além de ativar/desativar contas. Administradores têm acesso a todos os equipamentos. As permissões são verificadas no servidor em cada rota protegida; ocultar ações na interface não substitui esses controles. Somente um Administrador Máximo pode atribuir o perfil de Administrador Máximo. O sistema impede alterar o próprio perfil, desativar a própria conta ou remover o último Administrador Máximo ativo. Redefinir uma senha revoga as sessões anteriores daquele usuário.
+
+Contas desativadas não podem iniciar ou manter sessões, mas permanecem no banco para preservar autoria, relações e histórico de auditoria. Alterações administrativas em atividades criam uma nova versão pendente de aprovação; o histórico original não é sobrescrito. As contas existentes são migradas automaticamente sem alterar equipamentos ou registros; os perfis atuais de administrador continuam como Administrador Máximo, e os demais mantêm seu nível operacional.
 
 O servidor determina a autoria pela sessão autenticada e impede que quem registrou a atividade a aprove. O servidor escuta apenas em `127.0.0.1` por padrão.
 

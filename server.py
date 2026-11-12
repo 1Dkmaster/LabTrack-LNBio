@@ -41,11 +41,12 @@ MAX_REQUEST_BYTES = 1_048_576
 MAX_LOGIN_ATTEMPTS = 5
 LOGIN_WINDOW_SECONDS = 15 * 60
 COOKIE_NAME = "labtrack_session"
-ROLES = {"admin", "technical", "operator"}
+ROLES = {"admin", "technical", "operator", "viewer"}
 ROLE_NAMES = {
-    "admin": "Administrador",
-    "technical": "Responsável técnico",
-    "operator": "Inspetor / Operador",
+    "admin": "Administrador Máximo",
+    "technical": "Operador/Técnico · Responsável técnico",
+    "operator": "Operador/Técnico",
+    "viewer": "Espectador",
 }
 LOGIN_ATTEMPTS: dict[str, list[float]] = {}
 LOGIN_LOCK = threading.Lock()
@@ -113,6 +114,12 @@ def initialize_database(db_path: Path = DB_PATH) -> None:
                 password_salt BLOB NOT NULL,
                 active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
                 created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS user_roles (
+                user_id TEXT PRIMARY KEY REFERENCES users(id),
+                role TEXT NOT NULL CHECK (
+                    role IN ('admin', 'technical', 'operator', 'viewer')
+                )
             );
             CREATE TABLE IF NOT EXISTS equipment (
                 tag TEXT PRIMARY KEY COLLATE NOCASE,
@@ -184,6 +191,10 @@ def initialize_database(db_path: Path = DB_PATH) -> None:
             END;
             """
         )
+        connection.execute(
+            "INSERT OR IGNORE INTO user_roles(user_id, role) "
+            "SELECT id, role FROM users"
+        )
         review_columns = {
             column["name"]
             for column in connection.execute("PRAGMA table_info(activity_reviews)")
@@ -254,6 +265,10 @@ def initialize_database(db_path: Path = DB_PATH) -> None:
                         password_salt,
                         utc_now(),
                     ),
+                )
+                connection.execute(
+                    "INSERT INTO user_roles(user_id, role) VALUES (?, 'operator')",
+                    (LOCAL_USER_ID,),
                 )
         connection.commit()
     try:
@@ -329,6 +344,7 @@ def create_user_in_connection(
         "role": role,
         "createdAt": utc_now(),
     }
+    database_role = "operator" if role == "viewer" else role
     try:
         connection.execute(
             "INSERT INTO users(id, username, name, role, password_hash, "
@@ -337,7 +353,7 @@ def create_user_in_connection(
                 user["id"],
                 username,
                 name,
-                role,
+                database_role,
                 password_hash,
                 salt,
                 user["createdAt"],
@@ -345,6 +361,10 @@ def create_user_in_connection(
         )
     except sqlite3.IntegrityError as error:
         raise APIError(HTTPStatus.CONFLICT, "Esse nome de usuário já existe.") from error
+    connection.execute(
+        "INSERT INTO user_roles(user_id, role) VALUES (?, ?)",
+        (user["id"], role),
+    )
     return user
 
 
@@ -391,7 +411,9 @@ def equipment_allowed(
     )
 
 
-def normalize_activity_record(record: dict, user: dict) -> dict:
+def normalize_activity_record(
+    record: dict, user: dict, responsible_override: str | None = None
+) -> dict:
     if not isinstance(record, dict):
         raise APIError(HTTPStatus.BAD_REQUEST, "Registro da atividade inválido.")
     activity_type = record.get("type")
@@ -428,7 +450,7 @@ def normalize_activity_record(record: dict, user: dict) -> dict:
     if not isinstance(notes, str) or len(notes) > 2000:
         raise APIError(HTTPStatus.BAD_REQUEST, "Observações inválidas.")
     if AUTH_ENABLED:
-        responsible = user["name"]
+        responsible = responsible_override or user["name"]
     else:
         responsible = record.get("responsible", "")
         if not isinstance(responsible, str):
@@ -616,6 +638,8 @@ class Handler(SimpleHTTPRequestHandler):
     def check_origin(self) -> None:
         origin = self.headers.get("Origin")
         host = self.headers.get("Host", "")
+        if not host:
+            raise APIError(HTTPStatus.FORBIDDEN, "Host não autorizado.")
         allowed_hosts = {
             item.strip().lower()
             for item in os.environ.get(
@@ -626,21 +650,24 @@ class Handler(SimpleHTTPRequestHandler):
         hostname = host.rsplit(":", 1)[0].strip("[]").lower()
         if hostname not in allowed_hosts:
             raise APIError(HTTPStatus.FORBIDDEN, "Host não autorizado.")
-        if origin:
-            parsed = urlsplit(origin)
-            if (
-                parsed.scheme not in {"http", "https"}
-                or parsed.netloc.lower() != host.lower()
-                or parsed.path not in {"", "/"}
-                or parsed.query
-                or parsed.fragment
-            ):
-                raise APIError(HTTPStatus.FORBIDDEN, "Origem da solicitação não autorizada.")
+        if not origin:
+            raise APIError(HTTPStatus.FORBIDDEN, "Origem da solicitação não autorizada.")
+        parsed = urlsplit(origin)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or parsed.netloc.lower() != host.lower()
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise APIError(HTTPStatus.FORBIDDEN, "Origem da solicitação não autorizada.")
 
     def session_user(self, connection: sqlite3.Connection) -> dict | None:
         if not AUTH_ENABLED:
             row = connection.execute(
-                "SELECT id, username, name, role FROM users WHERE id = ? AND active = 1",
+                "SELECT u.id, u.username, u.name, r.role FROM users u "
+                "JOIN user_roles r ON r.user_id = u.id "
+                "WHERE u.id = ? AND u.active = 1",
                 (LOCAL_USER_ID,),
             ).fetchone()
             return (
@@ -664,8 +691,9 @@ class Handler(SimpleHTTPRequestHandler):
             return None
         token_hash = hashlib.sha256(morsel.value.encode("ascii", "ignore")).digest()
         row = connection.execute(
-            "SELECT u.id, u.username, u.name, u.role, s.expires_at "
+            "SELECT u.id, u.username, u.name, r.role, s.expires_at "
             "FROM sessions s JOIN users u ON u.id = s.user_id "
+            "JOIN user_roles r ON r.user_id = u.id "
             "WHERE s.token_hash = ? AND u.active = 1",
             (token_hash,),
         ).fetchone()
@@ -695,8 +723,9 @@ class Handler(SimpleHTTPRequestHandler):
                 with connect_db(self.server.db_path) as connection:
                     setup_required = (
                         connection.execute(
-                            "SELECT COUNT(*) FROM users "
-                            "WHERE role = 'admin' AND active = 1"
+                            "SELECT COUNT(*) FROM users u "
+                            "JOIN user_roles r ON r.user_id = u.id "
+                            "WHERE r.role = 'admin' AND u.active = 1"
                         ).fetchone()[0]
                         == 0
                     )
@@ -804,7 +833,7 @@ class Handler(SimpleHTTPRequestHandler):
                     self.users_route(connection, user)
                     return
 
-                if path.startswith("/api/users/") and self.command == "PUT":
+                if path.startswith("/api/users/") and self.command in {"PUT", "DELETE"}:
                     self.user_access_route(connection, user, path)
                     return
 
@@ -874,7 +903,8 @@ class Handler(SimpleHTTPRequestHandler):
         with connect_db(self.server.db_path) as connection:
             connection.execute("BEGIN IMMEDIATE")
             has_admin = connection.execute(
-                "SELECT 1 FROM users WHERE role = 'admin' AND active = 1 LIMIT 1"
+                "SELECT 1 FROM users u JOIN user_roles r ON r.user_id = u.id "
+                "WHERE r.role = 'admin' AND u.active = 1 LIMIT 1"
             ).fetchone()
             if has_admin:
                 raise APIError(HTTPStatus.CONFLICT, "A conta inicial já foi criada.")
@@ -939,8 +969,10 @@ class Handler(SimpleHTTPRequestHandler):
 
         with connect_db(self.server.db_path) as connection:
             row = connection.execute(
-                "SELECT id, username, name, role, password_hash, password_salt, active "
-                "FROM users WHERE username = ? COLLATE NOCASE",
+                "SELECT u.id, u.username, u.name, r.role, u.password_hash, "
+                "u.password_salt, u.active FROM users u "
+                "JOIN user_roles r ON r.user_id = u.id "
+                "WHERE u.username = ? COLLATE NOCASE",
                 (username,),
             ).fetchone()
             candidate, _ = hash_password(
@@ -1105,6 +1137,8 @@ class Handler(SimpleHTTPRequestHandler):
         raise APIError(HTTPStatus.METHOD_NOT_ALLOWED, "Método não permitido.")
 
     def create_activity(self, connection: sqlite3.Connection, user: dict):
+        if AUTH_ENABLED and user["role"] == "viewer":
+            raise APIError(HTTPStatus.FORBIDDEN, "O perfil espectador tem acesso somente para consulta.")
         body = self.read_json()
         raw_tag = body.get("equipmentTag", "")
         if not isinstance(raw_tag, str):
@@ -1158,6 +1192,8 @@ class Handler(SimpleHTTPRequestHandler):
     def create_activity_revision(
         self, connection: sqlite3.Connection, user: dict, path: str
     ):
+        if AUTH_ENABLED and user["role"] == "viewer":
+            raise APIError(HTTPStatus.FORBIDDEN, "O perfil espectador tem acesso somente para consulta.")
         if self.command != "POST":
             raise APIError(HTTPStatus.METHOD_NOT_ALLOWED, "Método não permitido.")
         parts = path.split("/")
@@ -1169,7 +1205,8 @@ class Handler(SimpleHTTPRequestHandler):
         ).fetchone()
         if not activity:
             raise APIError(HTTPStatus.NOT_FOUND, "Atividade não encontrada.")
-        if activity["actor_id"] != user["id"]:
+        is_admin_edit = AUTH_ENABLED and is_admin(user)
+        if not is_admin_edit and activity["actor_id"] != user["id"]:
             raise APIError(HTTPStatus.FORBIDDEN, "Somente quem registrou pode enviar a correção.")
         if not equipment_allowed(connection, user, activity["equipment_tag"]):
             raise APIError(HTTPStatus.FORBIDDEN, "Você não tem acesso a este equipamento.")
@@ -1183,7 +1220,7 @@ class Handler(SimpleHTTPRequestHandler):
             "WHERE activity_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1",
             (activity_id,),
         ).fetchone()
-        if (
+        if not is_admin_edit and (
             not latest_review
             or latest_review["decision"] != "changes_requested"
             or (
@@ -1193,9 +1230,40 @@ class Handler(SimpleHTTPRequestHandler):
         ):
             raise APIError(HTTPStatus.CONFLICT, "Não há solicitação de correção pendente.")
         body = self.read_json()
-        record = normalize_activity_record(body.get("record"), user)
+        current_record = connection.execute(
+            "SELECT record_json FROM activity_revisions WHERE activity_id = ? "
+            "ORDER BY created_at DESC, rowid DESC LIMIT 1",
+            (activity_id,),
+        ).fetchone()
+        if not current_record:
+            current_record = {"record_json": activity["record_json"]}
+        previous_record = json.loads(current_record["record_json"])
+        record = normalize_activity_record(
+            body.get("record"),
+            user,
+            previous_record.get("responsible") if is_admin_edit else None,
+        )
         revision_id = str(uuid.uuid4())
         now = utc_now()
+        if is_admin_edit and (
+            not latest_review or latest_review["decision"] != "changes_requested"
+        ):
+            connection.execute(
+                "INSERT INTO activity_reviews(id, activity_id, reviewer_id, reviewer_name, "
+                "reviewer_authenticated, decision, comments, created_at) "
+                "VALUES (?, ?, ?, ?, 1, 'changes_requested', ?, ?)",
+                (
+                    str(uuid.uuid4()),
+                    activity_id,
+                    user["id"],
+                    user["name"],
+                    "Edição administrativa registrada; a nova versão aguarda aprovação.",
+                    now,
+                ),
+            )
+            now = (
+                datetime.fromisoformat(now) + timedelta(microseconds=1)
+            ).isoformat(timespec="microseconds")
         connection.execute(
             "INSERT INTO activity_revisions(id, activity_id, actor_id, record_json, "
             "created_at) VALUES (?, ?, ?, ?, ?)",
@@ -1210,7 +1278,7 @@ class Handler(SimpleHTTPRequestHandler):
         audit(
             connection,
             user["id"],
-            "activity.corrected",
+            "activity.admin_edited" if is_admin_edit else "activity.corrected",
             activity_id,
             {
                 "revisionId": revision_id,
@@ -1234,8 +1302,8 @@ class Handler(SimpleHTTPRequestHandler):
     ):
         if self.command != "POST" or not path.endswith("/review"):
             raise APIError(HTTPStatus.NOT_FOUND, "Endpoint não encontrado.")
-        if AUTH_ENABLED and user["role"] not in {"admin", "technical"}:
-            raise APIError(HTTPStatus.FORBIDDEN, "Seu perfil não pode revisar atividades.")
+        if AUTH_ENABLED and not is_admin(user):
+            raise APIError(HTTPStatus.FORBIDDEN, "Somente o Administrador Máximo pode revisar atividades.")
         parts = path.split("/")
         if len(parts) != 5 or not parts[3]:
             raise APIError(HTTPStatus.NOT_FOUND, "Atividade não encontrada.")
@@ -1359,8 +1427,9 @@ class Handler(SimpleHTTPRequestHandler):
             raise APIError(HTTPStatus.FORBIDDEN, "Apenas administradores podem gerenciar usuários.")
         if self.command == "GET":
             rows = connection.execute(
-                "SELECT id, username, name, role, active, created_at FROM users "
-                "WHERE id != ? ORDER BY username",
+                "SELECT u.id, u.username, u.name, r.role, u.active, u.created_at "
+                "FROM users u JOIN user_roles r ON r.user_id = u.id "
+                "WHERE u.id != ? ORDER BY u.username",
                 (LOCAL_USER_ID,),
             ).fetchall()
             result = []
@@ -1438,27 +1507,165 @@ class Handler(SimpleHTTPRequestHandler):
         parts = path.split("/")
         if len(parts) != 4 or not parts[3]:
             raise APIError(HTTPStatus.NOT_FOUND, "Usuário não encontrado.")
+        connection.execute("BEGIN IMMEDIATE")
         target = connection.execute(
-            "SELECT id, username, role FROM users WHERE username = ? COLLATE NOCASE",
+            "SELECT u.id, u.username, u.name, u.active, r.role FROM users u "
+            "JOIN user_roles r ON r.user_id = u.id "
+            "WHERE u.username = ? COLLATE NOCASE",
             (parts[3],),
         ).fetchone()
         if not target:
             raise APIError(HTTPStatus.NOT_FOUND, "Usuário não encontrado.")
+        if self.command == "DELETE":
+            self.deactivate_user(connection, user, target)
+            return
+
         body = self.read_json()
+        allowed_fields = {
+            "name", "username", "role", "active", "password", "equipmentTags"
+        }
+        if not body or set(body) - allowed_fields:
+            raise APIError(HTTPStatus.BAD_REQUEST, "Informe somente usuário, nome, perfil, situação, senha ou equipamentos.")
+        name = body.get("name", target["name"])
+        username = body.get("username", target["username"])
+        role = body.get("role", target["role"])
+        active = body.get("active", bool(target["active"]))
+        password = body.get("password")
         tags = body.get("equipmentTags")
-        if not isinstance(tags, list):
-            raise APIError(HTTPStatus.BAD_REQUEST, "Informe equipmentTags como uma lista.")
-        self.set_equipment_access(connection, target["id"], tags)
-        audit(
-            connection,
-            user["id"],
-            "user.equipment_access_updated",
-            target["username"],
-            {"equipmentTags": tags},
-            self.client_address[0],
-        )
+        if not isinstance(role, str) or role not in ROLES:
+            raise APIError(HTTPStatus.BAD_REQUEST, "Perfil de acesso inválido.")
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > 120:
+            raise APIError(HTTPStatus.BAD_REQUEST, "Informe um nome com até 120 caracteres.")
+        if not isinstance(username, str):
+            raise APIError(HTTPStatus.BAD_REQUEST, "Nome de usuário inválido.")
+        username = username.strip().lower()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{2,39}", username):
+            raise APIError(
+                HTTPStatus.BAD_REQUEST,
+                "Usuário deve ter 3 a 40 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado.",
+            )
+        if not isinstance(active, bool):
+            raise APIError(HTTPStatus.BAD_REQUEST, "Situação da conta inválida.")
+        if password is not None and (
+            not isinstance(password, str) or not valid_password(password)
+        ):
+            raise APIError(HTTPStatus.BAD_REQUEST, "A nova senha deve ter entre 8 e 128 caracteres.")
+        if tags is not None and (
+            not isinstance(tags, list) or len(tags) > 2000
+        ):
+            raise APIError(HTTPStatus.BAD_REQUEST, "Lista de equipamentos inválida.")
+        if target["id"] == user["id"] and (
+            role != target["role"] or not active
+        ):
+            raise APIError(HTTPStatus.CONFLICT, "Não é permitido alterar o próprio perfil ou desativar a própria conta.")
+        if target["role"] == "admin" and (role != "admin" or not active):
+            active_admins = connection.execute(
+                "SELECT COUNT(*) FROM users u JOIN user_roles r ON r.user_id = u.id "
+                "WHERE r.role = 'admin' AND u.active = 1"
+            ).fetchone()[0]
+            if active_admins <= 1:
+                raise APIError(HTTPStatus.CONFLICT, "O sistema precisa manter ao menos um Administrador Máximo ativo.")
+
+        changed = {}
+        if username != target["username"]:
+            conflict = connection.execute(
+                "SELECT 1 FROM users WHERE username = ? COLLATE NOCASE AND id != ?",
+                (username, target["id"]),
+            ).fetchone()
+            if conflict:
+                raise APIError(HTTPStatus.CONFLICT, "Esse nome de usuário já existe.")
+            connection.execute(
+                "UPDATE users SET username = ? WHERE id = ?",
+                (username, target["id"]),
+            )
+            changed["username"] = {"from": target["username"], "to": username}
+        if name.strip() != target["name"]:
+            connection.execute(
+                "UPDATE users SET name = ? WHERE id = ?",
+                (name.strip(), target["id"]),
+            )
+            changed["name"] = {"from": target["name"], "to": name.strip()}
+        if role != target["role"]:
+            database_role = "operator" if role == "viewer" else role
+            connection.execute(
+                "UPDATE user_roles SET role = ? WHERE user_id = ?",
+                (role, target["id"]),
+            )
+            connection.execute(
+                "UPDATE users SET role = ? WHERE id = ?",
+                (database_role, target["id"]),
+            )
+            changed["role"] = {"from": target["role"], "to": role}
+        if active != bool(target["active"]):
+            connection.execute(
+                "UPDATE users SET active = ? WHERE id = ?",
+                (int(active), target["id"]),
+            )
+            changed["active"] = active
+            if not active:
+                connection.execute(
+                    "DELETE FROM sessions WHERE user_id = ?", (target["id"],)
+                )
+        if tags is not None:
+            self.set_equipment_access(connection, target["id"], tags)
+            changed["equipmentTags"] = tags
+        if password is not None:
+            password_hash, salt = hash_password(password)
+            connection.execute(
+                "UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?",
+                (password_hash, salt, target["id"]),
+            )
+            connection.execute(
+                "DELETE FROM sessions WHERE user_id = ?", (target["id"],)
+            )
+        if changed:
+            audit(
+                connection,
+                user["id"],
+                "user.updated",
+                target["username"],
+                changed,
+                self.client_address[0],
+            )
+        if password is not None:
+            audit(
+                connection,
+                user["id"],
+                "user.password_reset",
+                target["username"],
+                {},
+                self.client_address[0],
+            )
         connection.commit()
-        self.send_json(HTTPStatus.OK, {"ok": True, "equipmentTags": tags})
+        self.send_json(HTTPStatus.OK, {"ok": True, "role": role, "active": active})
+
+    def deactivate_user(self, connection: sqlite3.Connection, user: dict, target: sqlite3.Row):
+        if target["id"] == user["id"]:
+            raise APIError(HTTPStatus.CONFLICT, "Não é permitido desativar a própria conta.")
+        if target["active"] and target["role"] == "admin":
+            active_admins = connection.execute(
+                "SELECT COUNT(*) FROM users u JOIN user_roles r ON r.user_id = u.id "
+                "WHERE r.role = 'admin' AND u.active = 1"
+            ).fetchone()[0]
+            if active_admins <= 1:
+                raise APIError(HTTPStatus.CONFLICT, "O sistema precisa manter ao menos um Administrador Máximo ativo.")
+        if target["active"]:
+            connection.execute(
+                "UPDATE users SET active = 0 WHERE id = ?", (target["id"],)
+            )
+            connection.execute(
+                "DELETE FROM sessions WHERE user_id = ?", (target["id"],)
+            )
+            audit(
+                connection,
+                user["id"],
+                "user.deactivated",
+                target["username"],
+                {"active": False},
+                self.client_address[0],
+            )
+            connection.commit()
+        self.send_json(HTTPStatus.OK, {"ok": True, "active": False})
 
     def do_GET(self):
         request_path = urlsplit(self.path).path

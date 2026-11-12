@@ -31,8 +31,11 @@ class LabTrackAPITests(unittest.TestCase):
         cls.technician = server.create_user(
             "tech.test", "Test Technician", "technical", PASSWORD, cls.db_path
         )
+        cls.viewer = server.create_user(
+            "viewer.test", "Test Viewer", "viewer", PASSWORD, cls.db_path
+        )
         with server.connect_db(cls.db_path) as connection:
-            for user in (cls.operator, cls.technician):
+            for user in (cls.operator, cls.technician, cls.viewer):
                 connection.execute(
                     "INSERT INTO equipment_access(user_id, equipment_tag) VALUES (?, ?)",
                     (user["id"], "LNB-BAL-001"),
@@ -156,6 +159,14 @@ class LabTrackAPITests(unittest.TestCase):
         )
         self.request("POST", "/api/logout", {})
         self.login(self.technician["username"])
+        self.request(
+            "POST",
+            f"/api/activities/{activity['id']}/review",
+            {"decision": "approved", "comments": "Conferido"},
+            expected_status=403,
+        )
+        self.request("POST", "/api/logout", {})
+        self.login(self.admin["username"])
         reviewed, _ = self.request(
             "POST",
             f"/api/activities/{activity['id']}/review",
@@ -165,7 +176,7 @@ class LabTrackAPITests(unittest.TestCase):
         self.assertEqual(reviewed["activity"]["reviewStatus"], "approved")
         equipment, _ = self.request("GET", "/api/equipment/LNB-BAL-001")
         self.assertEqual(equipment["equipment"]["status"], "Atenção")
-        self.assertEqual(equipment["equipment"]["activities"][0]["reviews"][0]["reviewer"]["name"], self.technician["name"])
+        self.assertEqual(equipment["equipment"]["activities"][0]["reviews"][0]["reviewer"]["name"], self.admin["name"])
 
     def test_operator_cannot_manage_equipment_and_cannot_access_unassigned_tags(self):
         self.login(self.operator["username"])
@@ -203,7 +214,7 @@ class LabTrackAPITests(unittest.TestCase):
         )
         activity_id = created["activity"]["id"]
         self.request("POST", "/api/logout", {})
-        self.login(self.technician["username"])
+        self.login(self.admin["username"])
         requested, _ = self.request(
             "POST",
             f"/api/activities/{activity_id}/review",
@@ -236,7 +247,7 @@ class LabTrackAPITests(unittest.TestCase):
         self.assertEqual(revised["activity"]["revisionNumber"], 1)
         self.assertEqual(revised["activity"]["reviews"][0]["decision"], "changes_requested")
         self.request("POST", "/api/logout", {})
-        self.login(self.technician["username"])
+        self.login(self.admin["username"])
         approved, _ = self.request(
             "POST",
             f"/api/activities/{activity_id}/review",
@@ -247,6 +258,207 @@ class LabTrackAPITests(unittest.TestCase):
         equipment, _ = self.request("GET", "/api/equipment/LNB-BAL-001")
         self.assertEqual(equipment["equipment"]["status"], "Manutenção")
         self.assertEqual(equipment["equipment"]["activities"][0]["notes"], "Correção enviada")
+
+    def test_spectator_can_read_but_cannot_write_or_manage(self):
+        self.login(self.operator["username"])
+        created, _ = self.request(
+            "POST",
+            "/api/activities",
+            {
+                "equipmentTag": "LNB-BAL-001",
+                "record": {
+                    "type": "Verificação",
+                    "status": "Operacional",
+                    "checklist": [{"description": "Conferir", "result": "Realizado"}],
+                    "notes": "",
+                },
+            },
+            expected_status=201,
+        )
+        self.request("POST", "/api/logout", {})
+        self.login(self.viewer["username"])
+        equipment, _ = self.request("GET", "/api/equipment")
+        self.assertEqual([item["id"] for item in equipment["equipment"]], ["LNB-BAL-001"])
+        self.request("GET", "/api/equipment/LNB-BAL-001")
+        self.request(
+            "PUT",
+            "/api/equipment/LNB-BAL-001",
+            {"status": "Operacional"},
+            expected_status=403,
+        )
+        self.request(
+            "POST",
+            "/api/activities",
+            {
+                "equipmentTag": "LNB-BAL-001",
+                "record": {
+                    "type": "Verificação",
+                    "status": "Operacional",
+                    "checklist": [{"description": "Conferir", "result": "Realizado"}],
+                    "notes": "",
+                },
+            },
+            expected_status=403,
+        )
+        self.request(
+            "POST",
+            "/api/equipment",
+            {"id": "TEST-003", "name": "Equipamento", "category": "Teste", "location": "Sala"},
+            expected_status=403,
+        )
+        self.request("GET", "/api/users", expected_status=403)
+        self.request("GET", "/api/audit", expected_status=403)
+        self.request(
+            "POST",
+            f"/api/activities/{created['activity']['id']}/review",
+            {"decision": "approved", "comments": ""},
+            expected_status=403,
+        )
+
+    def test_master_edits_activity_as_audited_pending_revision(self):
+        self.login(self.operator["username"])
+        created, _ = self.request(
+            "POST",
+            "/api/activities",
+            {
+                "equipmentTag": "LNB-BAL-001",
+                "record": {
+                    "type": "Verificação",
+                    "status": "Atenção",
+                    "checklist": [{"description": "Conferir", "result": "Realizado"}],
+                    "notes": "Original",
+                },
+            },
+            expected_status=201,
+        )
+        activity_id = created["activity"]["id"]
+        self.request("POST", "/api/logout", {})
+        self.login(self.admin["username"])
+        revised, _ = self.request(
+            "POST",
+            f"/api/activities/{activity_id}/revisions",
+            {
+                "record": {
+                    "type": "Manutenção",
+                    "status": "Manutenção",
+                    "checklist": [{"description": "Conferir novamente", "result": "Realizado"}],
+                    "notes": "Revisado pelo Administrador Máximo",
+                },
+            },
+            expected_status=201,
+        )
+        self.assertEqual(revised["activity"]["reviewStatus"], "pending")
+        self.assertEqual(revised["activity"]["revisionNumber"], 1)
+        self.assertEqual(revised["activity"]["responsible"], self.operator["name"])
+        self.assertEqual(revised["activity"]["reviews"][0]["decision"], "changes_requested")
+        self.assertEqual(revised["activity"]["notes"], "Revisado pelo Administrador Máximo")
+        self.request(
+            "POST",
+            f"/api/activities/{activity_id}/review",
+            {"decision": "approved", "comments": "Edição conferida"},
+            expected_status=201,
+        )
+
+    def test_master_manages_roles_resets_passwords_and_deactivates_accounts(self):
+        self.login(self.operator["username"])
+        self.request(
+            "POST",
+            "/api/users",
+            {
+                "username": "forbidden.admin",
+                "name": "Forbidden Admin",
+                "password": PASSWORD,
+                "role": "admin",
+            },
+            expected_status=403,
+        )
+        self.request("POST", "/api/logout", {})
+        self.login(self.admin["username"])
+        created, _ = self.request(
+            "POST",
+            "/api/users",
+            {
+                "username": "managed.user",
+                "name": "Managed User",
+                "password": PASSWORD,
+                "role": "operator",
+                "equipmentTags": ["LNB-BAL-001"],
+            },
+            expected_status=201,
+        )
+        self.assertEqual(created["user"]["role"], "operator")
+
+        target_cookie_jar = http.cookiejar.CookieJar()
+        target_client = build_opener(HTTPCookieProcessor(target_cookie_jar))
+        admin_client = self.client
+        self.client = target_client
+        self.login("managed.user")
+        self.client = admin_client
+        self.request(
+            "PUT",
+            "/api/users/managed.user",
+            {
+                "name": "Managed Viewer",
+                "username": "managed.renamed",
+                "role": "viewer",
+                "password": "new-secure-password",
+            },
+        )
+
+        self.client = target_client
+        self.request("GET", "/api/session")
+        self.request("GET", "/api/equipment", expected_status=401)
+        self.request(
+            "POST",
+            "/api/login",
+            {"username": "managed.renamed", "password": "new-secure-password"},
+        )
+        self.request(
+            "POST",
+            "/api/activities",
+            {
+                "equipmentTag": "LNB-BAL-001",
+                "record": {
+                    "type": "Verificação",
+                    "status": "Operacional",
+                    "checklist": [{"description": "Conferir", "result": "Realizado"}],
+                    "notes": "",
+                },
+            },
+            expected_status=403,
+        )
+        self.client = admin_client
+        self.request("DELETE", "/api/users/managed.renamed", {})
+        self.client = target_client
+        self.request(
+            "POST",
+            "/api/login",
+            {"username": "managed.renamed", "password": "new-secure-password"},
+            expected_status=401,
+        )
+        self.request("GET", "/api/equipment", expected_status=401)
+        self.client = admin_client
+        users, _ = self.request("GET", "/api/users")
+        managed = next(user for user in users["users"] if user["username"] == "managed.renamed")
+        self.assertFalse(managed["active"])
+        self.assertEqual(managed["role"], "viewer")
+        self.assertEqual(managed["name"], "Managed Viewer")
+        self.request("GET", "/api/audit")
+
+    def test_master_cannot_demote_or_disable_own_account(self):
+        self.login(self.admin["username"])
+        self.request(
+            "PUT",
+            f"/api/users/{self.admin['username']}",
+            {"role": "operator"},
+            expected_status=409,
+        )
+        self.request(
+            "DELETE",
+            f"/api/users/{self.admin['username']}",
+            {},
+            expected_status=409,
+        )
 
     def test_database_audit_log_rejects_mutation(self):
         with server.connect_db(self.db_path) as connection:

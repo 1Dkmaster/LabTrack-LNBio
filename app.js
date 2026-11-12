@@ -19,12 +19,15 @@ const els = {
   setupMessage: document.querySelector("#setupMessage"),
   currentUserLabel: document.querySelector("#currentUserLabel"),
   logoutBtn: document.querySelector("#logoutBtn"),
-  userManagementBtn: document.querySelector("#userManagementBtn"),
-  userManagementModal: document.querySelector("#userManagementModal"),
+  accessTab: document.querySelector("#accessTab"),
+  refreshUsersBtn: document.querySelector("#refreshUsersBtn"),
+  auditBtn: document.querySelector("#auditBtn"),
+  auditModal: document.querySelector("#auditModal"),
+  auditList: document.querySelector("#auditList"),
+  closeAuditBtn: document.querySelector("#closeAuditBtn"),
   userForm: document.querySelector("#userForm"),
   userEquipmentAccess: document.querySelector("#userEquipmentAccess"),
   userList: document.querySelector("#userList"),
-  closeUserManagementBtn: document.querySelector("#closeUserManagementBtn"),
   reviewModal: document.querySelector("#reviewModal"),
   reviewForm: document.querySelector("#reviewForm"),
   reviewModalTitle: document.querySelector("#reviewModalTitle"),
@@ -111,8 +114,10 @@ async function enterApplication(user) {
     ? `${user.name} · ${user.roleName}`
     : "Acesso sem autenticação · nomes declarados";
   els.logoutBtn.classList.toggle("hidden", !user.authenticated);
-  els.userManagementBtn.classList.toggle("hidden", !user.authenticated || user.role !== "admin");
+  els.accessTab.classList.toggle("hidden", !user.authenticated || user.role !== "admin");
+  els.auditBtn.classList.toggle("hidden", !user.authenticated || user.role !== "admin");
   els.newEquipmentBtn.classList.toggle("hidden", user.role !== "admin");
+  els.activityBtn.classList.toggle("hidden", user.role === "viewer");
   render();
 }
 
@@ -270,6 +275,7 @@ function renderTabContent(selected) {
   }
 
   if (state.currentTab === "overview") {
+    const canSubmit = state.currentUser?.role !== "viewer";
     els.tabContent.innerHTML = `
       <div class="equipment-overview-grid">
         <article class="overview-item"><span>TAG</span><strong>${escapeHtml(selected.id)}</strong></article>
@@ -278,9 +284,9 @@ function renderTabContent(selected) {
         <article class="overview-item"><span>Situação registrada</span><strong>${escapeHtml(selected.status || "Não verificado")}</strong></article>
       </div>
       ${selected.inventorySource ? `<p class="source-note">Identificação importada da planilha de inventário. Dados não fornecidos por ela permanecem como não informados.</p>` : ""}
-      <button type="button" class="primary-btn overview-action" id="startEquipmentActivityBtn">Registrar uma atividade</button>
+      ${canSubmit ? '<button type="button" class="primary-btn overview-action" id="startEquipmentActivityBtn">Registrar uma atividade</button>' : '<p class="form-help">Perfil espectador: acesso somente para consulta.</p>'}
     `;
-    els.tabContent.querySelector("#startEquipmentActivityBtn").addEventListener("click", () => openModal());
+    els.tabContent.querySelector("#startEquipmentActivityBtn")?.addEventListener("click", () => openModal());
     return;
   }
 
@@ -289,7 +295,9 @@ function renderTabContent(selected) {
       new Date(getRecordTimestamp(b)) - new Date(getRecordTimestamp(a))
     );
     const canReview = !state.currentUser?.authenticated
-      || ["admin", "technical"].includes(state.currentUser?.role);
+      || state.currentUser?.role === "admin";
+    const canSubmit = state.currentUser?.role !== "viewer";
+    const canEditRecords = state.currentUser?.role === "admin";
     els.tabContent.innerHTML = `
       <div class="history-toolbar">
         <p>Relatórios e exportação referentes a <strong>${escapeHtml(selected.id)}</strong>.</p>
@@ -311,7 +319,7 @@ function renderTabContent(selected) {
               ${record.revisionNumber ? `<span>Versão corrigida: ${record.revisionNumber}</span>` : ""}
               <p>${escapeHtml(record.notes || "Sem observações adicionais.")}</p>
               ${record.reviews?.map(review => `<p class="review-note">${escapeHtml(reviewStatusLabel(review.decision))} por ${escapeHtml(review.reviewer.name)}${review.reviewer.authenticated ? "" : " (nome declarado, não autenticado)"} · ${escapeHtml(formatRecordDateTime({ createdAt: review.createdAt }))}${review.comments ? ` · ${escapeHtml(review.comments)}` : ""}</p>`).join("") || ""}
-              ${record.reviewStatus === "changes_requested" && (!state.currentUser?.authenticated || record.actor?.id === state.currentUser?.id) ? `
+              ${canSubmit && record.reviewStatus === "changes_requested" && (!state.currentUser?.authenticated || record.actor?.id === state.currentUser?.id) ? `
                 <button type="button" class="secondary-btn small correction-btn" data-record-id="${escapeHtml(record.id)}">Enviar correção solicitada</button>
               ` : ""}
               ${canReview && (!state.currentUser?.authenticated || record.actor?.id !== state.currentUser?.id) && record.reviewStatus === "pending" ? `
@@ -321,6 +329,7 @@ function renderTabContent(selected) {
                   <button type="button" class="secondary-btn small review-btn" data-record-id="${escapeHtml(record.id)}" data-decision="rejected">Reprovar</button>
                 </div>
               ` : ""}
+              ${canEditRecords ? `<button type="button" class="secondary-btn small admin-edit-btn" data-record-id="${escapeHtml(record.id)}">Editar como Administrador Máximo</button>` : ""}
               <button type="button" class="secondary-btn small report-btn" data-record-id="${escapeHtml(record.id)}">Abrir relatório</button>
             </div>
             <span class="badge ${reviewStatusClass(record.reviewStatus)}">${escapeHtml(recordReviewStatusLabel(record))}</span>
@@ -337,6 +346,12 @@ function renderTabContent(selected) {
       button.addEventListener("click", () => reviewActivity(button.dataset.recordId, button.dataset.decision));
     });
     els.tabContent.querySelectorAll(".correction-btn").forEach(button => {
+      button.addEventListener("click", () => {
+        const record = records.find(item => item.id === button.dataset.recordId);
+        if (record) openModal(record);
+      });
+    });
+    els.tabContent.querySelectorAll(".admin-edit-btn").forEach(button => {
       button.addEventListener("click", () => {
         const record = records.find(item => item.id === button.dataset.recordId);
         if (record) openModal(record);
@@ -645,6 +660,9 @@ function formatRecordDateTime(record) {
 }
 
 function showView(viewName) {
+  if (viewName === "access" && state.currentUser?.role !== "admin") {
+    viewName = "home";
+  }
   document.body.dataset.view = viewName;
   document.querySelectorAll(".view").forEach(view => view.classList.toggle("active", view.id === `${viewName}View`));
   navButtons.forEach(button => {
@@ -670,7 +688,7 @@ function selectEquipment(id) {
 
 function openModal(revisionRecord = null) {
   const selected = getSelectedEquipment();
-  if (!selected) return;
+  if (!selected || state.currentUser?.role === "viewer") return;
   state.revisingActivityId = revisionRecord?.id || null;
   els.activityForm.reset();
   els.activityForm.elements.responsible.value = state.currentUser.authenticated ? state.currentUser.name : "";
@@ -690,7 +708,9 @@ function openModal(revisionRecord = null) {
     addChecklistItem();
   }
   els.modalTitle.textContent = revisionRecord
-    ? `Enviar correção · ${selected.name}`
+    ? state.currentUser.role === "admin"
+      ? `Editar registro · ${selected.name}`
+      : `Enviar correção · ${selected.name}`
     : `Registrar atividade · ${selected.name}`;
   els.modalBackdrop.classList.remove("hidden");
 }
@@ -804,6 +824,12 @@ async function addEquipment(event) {
 async function loadUsers() {
   try {
     const result = await apiRequest("/api/users");
+    const roleOptions = [
+      ["operator", "Operador/Técnico"],
+      ["technical", "Operador/Técnico · Responsável técnico"],
+      ["viewer", "Espectador · somente leitura"],
+      ["admin", "Administrador Máximo"]
+    ];
     els.userEquipmentAccess.innerHTML = state.equipment.map(item =>
       `<option value="${escapeHtml(item.id)}">${escapeHtml(item.id)} · ${escapeHtml(item.name)}</option>`
     ).join("");
@@ -811,28 +837,73 @@ async function loadUsers() {
       <article class="user-list-item">
         <strong>${escapeHtml(user.name)}</strong>
         <span>${escapeHtml(user.username)} · ${escapeHtml(user.roleName)} · ${user.active ? "Ativo" : "Inativo"}</span>
+        <label>Nome completo
+          <input class="user-name-edit" data-username="${escapeHtml(user.username)}" type="text" maxlength="120" value="${escapeHtml(user.name)}" />
+        </label>
+        <label>Usuário
+          <input class="user-username-edit" data-username="${escapeHtml(user.username)}" type="text" minlength="3" maxlength="40" value="${escapeHtml(user.username)}" autocomplete="off" />
+        </label>
+        <label>Perfil de acesso
+          <select class="user-role-edit" data-username="${escapeHtml(user.username)}" ${user.id === state.currentUser.id ? "disabled" : ""}>
+            ${roleOptions.map(([value, label]) => `<option value="${value}" ${user.role === value ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </label>
+        <label>Redefinir senha
+          <input class="user-password-edit" data-username="${escapeHtml(user.username)}" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Deixe vazio para manter" />
+        </label>
         ${user.role === "admin" ? "<span>Acesso a todos os equipamentos.</span>" : `
           <label>Equipamentos autorizados
             <select class="user-access-edit" data-username="${escapeHtml(user.username)}" multiple size="4">
               ${state.equipment.map(item => `<option value="${escapeHtml(item.id)}" ${user.equipmentTags.includes(item.id) ? "selected" : ""}>${escapeHtml(item.id)} · ${escapeHtml(item.name)}</option>`).join("")}
             </select>
           </label>
-          <button type="button" class="secondary-btn small save-user-access-btn" data-username="${escapeHtml(user.username)}">Salvar permissões</button>
         `}
+        <button type="button" class="secondary-btn small save-user-settings-btn" data-username="${escapeHtml(user.username)}">Salvar alterações</button>
+        <button type="button" class="secondary-btn small toggle-user-active-btn" data-username="${escapeHtml(user.username)}" data-active="${user.active ? "true" : "false"}" ${user.id === state.currentUser.id ? "disabled" : ""}>${user.active ? "Desativar conta" : "Reativar conta"}</button>
       </article>
     `).join("") || '<p class="empty-state">Nenhum usuário cadastrado.</p>';
-    els.userList.querySelectorAll(".save-user-access-btn").forEach(button => {
+    els.userList.querySelectorAll(".save-user-settings-btn").forEach(button => {
       button.addEventListener("click", async () => {
-        const select = button.parentElement.querySelector(".user-access-edit");
+        const item = button.closest(".user-list-item");
+        const select = item.querySelector(".user-access-edit");
+        const password = item.querySelector(".user-password-edit").value;
+        const updates = {
+          name: item.querySelector(".user-name-edit").value.trim(),
+          username: item.querySelector(".user-username-edit").value.trim().toLowerCase(),
+          role: item.querySelector(".user-role-edit").value
+        };
+        if (select) updates.equipmentTags = [...select.selectedOptions].map(option => option.value);
+        if (password) updates.password = password;
         try {
           await apiRequest(`/api/users/${encodeURIComponent(button.dataset.username)}`, {
             method: "PUT",
-            body: JSON.stringify({ equipmentTags: [...select.selectedOptions].map(option => option.value) })
+            body: JSON.stringify(updates)
           });
-          window.alert("Permissões de acesso atualizadas.");
+          window.alert("Dados da conta atualizados. As sessões anteriores foram encerradas se a senha mudou.");
           await loadUsers();
         } catch (error) {
-          window.alert(`Não foi possível atualizar as permissões: ${error.message}`);
+          window.alert(`Não foi possível atualizar a conta: ${error.message}`);
+        }
+      });
+    });
+    els.userList.querySelectorAll(".toggle-user-active-btn").forEach(button => {
+      button.addEventListener("click", async () => {
+        const active = button.dataset.active === "true";
+        try {
+          if (active) {
+            await apiRequest(`/api/users/${encodeURIComponent(button.dataset.username)}`, {
+              method: "DELETE",
+              body: "{}"
+            });
+          } else {
+            await apiRequest(`/api/users/${encodeURIComponent(button.dataset.username)}`, {
+              method: "PUT",
+              body: JSON.stringify({ active: true })
+            });
+          }
+          await loadUsers();
+        } catch (error) {
+          window.alert(`Não foi possível alterar a situação da conta: ${error.message}`);
         }
       });
     });
@@ -863,14 +934,26 @@ async function addUser(event) {
   }
 }
 
-function openUserManagement() {
-  els.userManagementModal.classList.remove("hidden");
-  loadUsers();
+async function openAudit() {
+  els.auditModal.classList.remove("hidden");
+  els.auditList.innerHTML = '<p class="empty-state">Carregando auditoria...</p>';
+  try {
+    const result = await apiRequest("/api/audit");
+    els.auditList.innerHTML = result.events.map(event => `
+      <article class="audit-item">
+        <strong>${escapeHtml(event.action)} · ${escapeHtml(event.subject)}</strong>
+        <span>${escapeHtml(event.actorName || "Sistema")} (${escapeHtml(event.actor || "sem usuário")}) · ${escapeHtml(formatDateTime(event.createdAt))}</span>
+        <span>Origem: ${escapeHtml(event.remoteAddress)}</span>
+        <pre>${escapeHtml(JSON.stringify(event.details, null, 2))}</pre>
+      </article>
+    `).join("") || '<p class="empty-state">Nenhum evento registrado.</p>';
+  } catch (error) {
+    els.auditList.innerHTML = `<p class="form-message">${escapeHtml(error.message)}</p>`;
+  }
 }
 
-function closeUserManagement() {
-  els.userManagementModal.classList.add("hidden");
-  els.userForm.reset();
+function closeAudit() {
+  els.auditModal.classList.add("hidden");
 }
 
 els.loginForm.addEventListener("submit", async event => {
@@ -931,10 +1014,11 @@ els.logoutBtn.addEventListener("click", async () => {
   }
 });
 
-els.userManagementBtn.addEventListener("click", openUserManagement);
-els.closeUserManagementBtn.addEventListener("click", closeUserManagement);
-els.userManagementModal.addEventListener("click", event => {
-  if (event.target === els.userManagementModal) closeUserManagement();
+els.refreshUsersBtn.addEventListener("click", loadUsers);
+els.auditBtn.addEventListener("click", openAudit);
+els.closeAuditBtn.addEventListener("click", closeAudit);
+els.auditModal.addEventListener("click", event => {
+  if (event.target === els.auditModal) closeAudit();
 });
 els.userForm.addEventListener("submit", addUser);
 els.reviewForm.addEventListener("submit", submitReview);
@@ -993,7 +1077,10 @@ document.querySelector("#identifyQrBtn").addEventListener("click", () => {
   showView("identify");
   els.tagInput.focus();
 });
-navButtons.forEach(button => button.addEventListener("click", () => showView(button.dataset.view)));
+navButtons.forEach(button => button.addEventListener("click", () => {
+  showView(button.dataset.view);
+  if (button.dataset.view === "access") loadUsers();
+}));
 
 document.addEventListener("DOMContentLoaded", initialize);
 
@@ -1001,7 +1088,7 @@ window.addEventListener("keydown", event => {
   if (event.key === "Escape") {
     closeModal();
     closeEquipmentModal();
-    closeUserManagement();
+    closeAudit();
     closeReviewModal();
   }
 });

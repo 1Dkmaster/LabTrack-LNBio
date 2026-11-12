@@ -637,6 +637,35 @@ label textarea:focus {
   overflow-wrap: anywhere;
 }
 
+.audit-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(65vh, 680px);
+  overflow: auto;
+}
+
+.audit-item {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  overflow-wrap: anywhere;
+}
+
+.audit-item span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.audit-item pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+
 .public-status-card {
   margin-top: 18px;
   padding: 26px;

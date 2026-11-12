@@ -51,7 +51,8 @@
         </nav>
         <div class="topbar-actions">
           <span id="currentUserLabel" class="prototype-notice"></span>
-          <button type="button" id="userManagementBtn" class="secondary-btn small hidden">Usuários</button>
+          <button type="button" id="accessTab" class="secondary-btn small nav-btn hidden" data-view="access">Acesso</button>
+          <button type="button" id="auditBtn" class="secondary-btn small hidden">Auditoria</button>
           <button type="button" id="logoutBtn" class="secondary-btn small">Sair</button>
         </div>
       </header>
@@ -113,6 +114,50 @@
               <h3>Resumo de controle</h3>
             </div>
             <div id="alertList" class="alert-list"></div>
+          </div>
+        </section>
+
+        <section id="accessView" class="view">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Administração do sistema</p>
+              <h2>Acesso e usuários</h2>
+              <p>Gerencie contas, perfis, senhas e equipamentos autorizados. O Administrador Máximo tem acesso a todos os equipamentos.</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Cadastrar usuário</h3>
+            </div>
+            <form id="userForm">
+              <div class="form-grid">
+                <label>Nome completo<input name="name" type="text" maxlength="120" required /></label>
+                <label>Usuário<input name="username" type="text" minlength="3" maxlength="40" autocomplete="off" required /></label>
+                <label>Senha inicial<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required /></label>
+                <label>Perfil
+                  <select name="role" required>
+                    <option value="operator">Operador/Técnico</option>
+                    <option value="technical">Operador/Técnico · Responsável técnico</option>
+                    <option value="viewer">Espectador · somente leitura</option>
+                    <option value="admin">Administrador Máximo</option>
+                  </select>
+                </label>
+                <label class="user-access-field">Equipamentos autorizados
+                  <select name="equipmentTags" id="userEquipmentAccess" multiple size="5"></select>
+                </label>
+              </div>
+              <p class="form-help">Operadores/técnicos e espectadores veem apenas equipamentos selecionados. Somente o Administrador Máximo pode conceder esse perfil. A senha precisa ter pelo menos 8 caracteres.</p>
+              <div class="modal-actions">
+                <button type="submit" class="primary-btn">Criar usuário</button>
+              </div>
+            </form>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Contas cadastradas</h3>
+              <button type="button" id="refreshUsersBtn" class="secondary-btn small">Atualizar lista</button>
+            </div>
+            <div id="userList" class="user-list"></div>
           </div>
         </section>
 
@@ -263,34 +308,13 @@
       </div>
     </div>
 
-    <div id="userManagementModal" class="modal-backdrop hidden">
+    <div id="auditModal" class="modal-backdrop hidden">
       <div class="modal">
         <div class="modal-header">
-          <h3>Gerenciar usuários</h3>
-          <button id="closeUserManagementBtn" class="icon-btn" aria-label="Fechar">✕</button>
+          <h3>Auditoria do sistema</h3>
+          <button id="closeAuditBtn" class="icon-btn" aria-label="Fechar auditoria">✕</button>
         </div>
-        <form id="userForm">
-          <div class="form-grid">
-            <label>Nome completo<input name="name" type="text" maxlength="120" required /></label>
-            <label>Usuário<input name="username" type="text" minlength="3" maxlength="40" autocomplete="off" required /></label>
-            <label>Senha inicial<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required /></label>
-            <label>Perfil
-              <select name="role" required>
-                <option value="operator">Inspetor / Operador</option>
-                <option value="technical">Responsável técnico</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </label>
-            <label class="user-access-field">Equipamentos autorizados
-              <select name="equipmentTags" id="userEquipmentAccess" multiple size="5"></select>
-            </label>
-          </div>
-          <p class="form-help">Perfis técnico e operador veem apenas equipamentos selecionados. A senha precisa ter pelo menos 8 caracteres. A conta é cadastrada pelo administrador autenticado.</p>
-          <div class="modal-actions">
-            <button type="submit" class="primary-btn">Criar usuário</button>
-          </div>
-        </form>
-        <div id="userList" class="user-list"></div>
+        <div id="auditList" class="audit-list" aria-live="polite"></div>
       </div>
     </div>
 
